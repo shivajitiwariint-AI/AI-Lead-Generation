@@ -1,0 +1,1025 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  TRIAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  PAUSED
+  TRIALING
+}
+
+enum RoleType {
+  SUPER_ADMIN
+  COMPANY_OWNER
+  COMPANY_ADMIN
+  SALES_MANAGER
+  SALES_REPRESENTATIVE
+  READ_ONLY_ANALYST
+}
+
+enum OperatingMode {
+  FULLY_AI_AUTOMATED
+  AI_WITH_APPROVAL
+  FULLY_MANUAL
+}
+
+model Tenant {
+  id        String   @id @default(uuid()) @db.Char(36)
+  name      String   @db.VarChar(200)
+  slug      String   @unique @db.VarChar(100)
+  status    TenantStatus @default(ACTIVE)
+  timezone  String   @default("UTC") @db.VarChar(50)
+  planId    String?  @db.Char(36)
+
+  // AI autonomy controls (requirements 2 & 8)
+  operatingMode    OperatingMode @default(AI_WITH_APPROVAL)
+  automationPaused Boolean       @default(false)
+  aiEnabled        Boolean       @default(true)
+
+  // Super admin module access control (req: allow/enable modules per company)
+  enabledModules Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([status])
+  @@index([planId])
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.Char(36)
+  name          String?   @db.VarChar(200)
+  email         String    @unique @db.VarChar(255)
+  phone         String?   @db.VarChar(50)
+  emailVerified DateTime?
+  image         String?   @db.VarChar(500)
+  password      String?   @db.VarChar(255)
+  status        UserStatus @default(PENDING_VERIFICATION)
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+model TenantUser {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  userId    String   @db.Char(36)
+  roleId    String   @db.Char(36)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String?  @db.Char(36)
+  name        String   @db.VarChar(100)
+  type        RoleType @default(SALES_REPRESENTATIVE)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([type])
+  @@unique([tenantId, type])
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Char(36)
+  key         String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+}
+
+model RolePermission {
+  id          String   @id @default(uuid()) @db.Char(36)
+  roleId      String   @db.Char(36)
+  permissionId String  @db.Char(36)
+  createdAt   DateTime @default(now())
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+model Plan {
+  id          String   @id @default(uuid()) @db.Char(36)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(500)
+  limits      Json
+  features    Json
+  priceMonthly Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Subscription {
+  id             String   @id @default(uuid()) @db.Char(36)
+  tenantId       String   @db.Char(36)
+  planId         String   @db.Char(36)
+  status         SubscriptionStatus @default(TRIALING)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([planId])
+  @@index([status])
+}
+
+// ============================================
+// NextAuth.js models
+// ============================================
+
+model Account {
+  id                String  @id @default(uuid()) @db.Char(36)
+  userId            String  @db.Char(36)
+  type              String  @db.VarChar(50)
+  provider          String  @db.VarChar(100)
+  providerAccountId String  @db.VarChar(255)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String? @db.VarChar(50)
+  scope             String? @db.Text
+  id_token          String? @db.Text
+  session_state     String? @db.Text
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Char(36)
+  sessionToken String   @unique @db.VarChar(255)
+  userId       String   @db.Char(36)
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken])
+  @@index([userId])
+  @@index([expires])
+}
+
+model VerificationToken {
+  identifier String @db.VarChar(255)
+  token      String @unique @db.VarChar(255)
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@index([expires])
+}
+
+// ============================================
+// Lead & CRM models (plain FKs, no @relation)
+// ============================================
+
+model Lead {
+  id                  String     @id @default(uuid()) @db.Char(36)
+  tenantId            String     @db.Char(36)
+  sourceId            String?    @db.Char(36)
+  ownerId             String?    @db.Char(36)
+  name                String     @db.VarChar(200)
+  email               String?    @db.VarChar(255)
+  phone               String?    @db.VarChar(50)
+  company             String?    @db.VarChar(200)
+  website             String?    @db.VarChar(500)
+  industry            String?    @db.VarChar(100)
+  location            String?    @db.VarChar(200)
+  requirement         String?    @db.Text
+  status              String     @default("new") @db.VarChar(50)
+  score               Int        @default(0)
+  aiSummary           String?    @db.Text
+  consentMarketing    Boolean    @default(false)
+  consentCapturedAt   DateTime?
+  consentMethod       String?    @db.VarChar(100)
+  lastContactedAt     DateTime?
+
+  // Manual takeover (requirement 8): "ai" | "manual"
+  controlMode    String    @default("ai") @db.VarChar(20)
+  lastAiActionAt DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, controlMode])
+  @@index([email])
+  @@index([phone])
+}
+
+model LeadSource {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  leadId      String   @db.Char(36)
+  sourceType  String   @db.VarChar(100)
+  externalId  String?  @db.VarChar(255)
+  attribution String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([sourceType, externalId])
+}
+
+model Campaign {
+  id                String   @id @default(uuid()) @db.Char(36)
+  tenantId          String   @db.Char(36)
+  industryId        String?  @db.Char(36)
+  scoringProfileId  String?  @db.Char(36)
+  name              String   @db.VarChar(200)
+  objective         String?  @db.Text
+  status            String   @default("draft") @db.VarChar(50)
+  category          String?  @db.VarChar(100)
+  targetAudience    String?  @db.VarChar(200)
+  locations         Json?
+  settings          Json?
+  schedule          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([industryId])
+}
+
+model CampaignLead {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  campaignId String  @db.Char(36)
+  leadId    String   @db.Char(36)
+  status    String   @default("new") @db.VarChar(50)
+  createdAt DateTime @default(now())
+
+  @@unique([campaignId, leadId])
+  @@index([tenantId])
+  @@index([campaignId])
+  @@index([leadId])
+}
+
+model LeadActivity {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  leadId      String   @db.Char(36)
+  actorId     String?  @db.Char(36)
+  activityType String  @db.VarChar(100)
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([tenantId, createdAt])
+}
+
+model LeadRequirementValue {
+  id         String   @id @default(uuid()) @db.Char(36)
+  tenantId   String   @db.Char(36)
+  leadId     String   @db.Char(36)
+  campaignId String   @db.Char(36)
+  fieldKey   String   @db.VarChar(100)
+  valueJson  Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([leadId, campaignId, fieldKey])
+  @@index([tenantId])
+  @@index([campaignId])
+}
+
+// ============================================
+// Industry & Templates
+// ============================================
+
+model Industry {
+  id             String   @id @default(uuid()) @db.Char(36)
+  key            String   @unique @db.VarChar(100)
+  name           String   @db.VarChar(200)
+  description    String?  @db.Text
+  enabled        Boolean  @default(true)
+  templateVersion Int     @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([key])
+  @@index([enabled])
+}
+
+model IndustryTemplate {
+  id               String   @id @default(uuid()) @db.Char(36)
+  industryId       String   @db.Char(36)
+  name             String   @db.VarChar(200)
+  defaultFields    Json?
+  defaultQuestions Json?
+  scoringProfile   Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([industryId])
+}
+
+model CampaignFieldDefinition {
+  id             String   @id @default(uuid()) @db.Char(36)
+  tenantId       String   @db.Char(36)
+  campaignId     String?  @db.Char(36)
+  fieldKey       String   @db.VarChar(100)
+  label          String   @db.VarChar(200)
+  description    String?  @db.Text
+  dataType       String   @db.VarChar(50)
+  required       Boolean  @default(false)
+  validationRules Json?
+  options        Json?
+  visibleToSales Boolean  @default(true)
+  internalOnly   Boolean  @default(false)
+  isSensitive    Boolean  @default(false)
+  displayOrder   Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([campaignId])
+  @@index([fieldKey])
+}
+
+model LeadQualificationResult {
+  id              String   @id @default(uuid()) @db.Char(36)
+  tenantId        String   @db.Char(36)
+  leadId          String   @db.Char(36)
+  campaignId      String   @db.Char(36)
+  fitScore        Int      @default(0)
+  intentScore     Int      @default(0)
+  urgencyScore    Int      @default(0)
+  completenessScore Int   @default(0)
+  summary         String?  @db.Text
+  evidence        Json?
+  nextAction      String?  @db.Text
+  modelId         String?  @db.Char(36)
+  promptVersion   String?  @db.VarChar(100)
+  confidence      String?  @db.VarChar(50)
+  tokenUsage      Int?     @default(0)
+  estimatedCost   Decimal? @default(0) @db.Decimal(10, 4)
+  processingStatus String @default("completed") @db.VarChar(50)
+
+  // Offer matching (requirement 5): match lead against company products/services
+  matchScore    Int?
+  matchedOffers Json?    // [{offer, offerType, score, reason}]
+
+  createdAt       DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([campaignId])
+  @@index([processingStatus])
+}
+
+// ============================================
+// AI Provider & Module models
+// ============================================
+
+model AIProvider {
+  id          String   @id @default(uuid()) @db.Char(36)
+  providerKey String   @unique @db.VarChar(100)
+  displayName String   @db.VarChar(200)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([providerKey])
+  @@index([enabled])
+}
+
+model AIModel {
+  id          String   @id @default(uuid()) @db.Char(36)
+  providerId  String   @db.Char(36)
+  modelKey    String   @db.VarChar(200)
+  displayName String   @db.VarChar(200)
+  capabilities Json?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([providerId])
+  @@index([modelKey])
+  @@index([enabled])
+}
+
+model AICredential {
+  id           String   @id @default(uuid()) @db.Char(36)
+  tenantId     String?  @db.Char(36)
+  providerId   String   @db.Char(36)
+  encryptedSecret String @db.Text
+  keyVersion   Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([providerId])
+}
+
+model AIModuleAssignment {
+  id               String   @id @default(uuid()) @db.Char(36)
+  tenantId         String?  @db.Char(36)
+  moduleKey        String   @db.VarChar(100)
+  modelId          String   @db.Char(36)
+  fallbackModelId  String?  @db.Char(36)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([tenantId, moduleKey])
+  @@index([tenantId])
+  @@index([moduleKey])
+}
+
+model AIUsageLog {
+  id           String   @id @default(uuid()) @db.Char(36)
+  tenantId     String   @db.Char(36)
+  providerId   String   @db.Char(36)
+  modelId      String   @db.Char(36)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  requestId    String?  @db.VarChar(255)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([providerId])
+  @@index([modelId])
+  @@index([createdAt])
+}
+
+model AICostLog {
+  id           String   @id @default(uuid()) @db.Char(36)
+  tenantId     String   @db.Char(36)
+  providerId   String   @db.Char(36)
+  modelId      String   @db.Char(36)
+  estimatedCost Decimal @default(0) @db.Decimal(10, 4)
+  currency     String   @default("USD") @db.VarChar(10)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([createdAt])
+}
+
+// ============================================
+// Chatbot & Conversations
+// ============================================
+
+model Chatbot {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  name      String   @db.VarChar(200)
+  publicKey String   @unique @db.VarChar(100)
+  settings  Json?
+  status    String   @default("active") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([publicKey])
+  @@index([status])
+}
+
+model Conversation {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  chatbotId   String?  @db.Char(36)
+  leadId      String?  @db.Char(36)
+  visitorRef  String?  @db.VarChar(255)
+  status      String   @default("open") @db.VarChar(50)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([chatbotId])
+  @@index([leadId])
+  @@index([status])
+}
+
+model ChatMessage {
+  id           String   @id @default(uuid()) @db.Char(36)
+  tenantId     String   @db.Char(36)
+  conversationId String  @db.Char(36)
+  role         String   @db.VarChar(50)
+  content      String   @db.Text
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([conversationId])
+  @@index([tenantId, createdAt])
+}
+
+model KnowledgeDocument {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  chatbotId String   @db.Char(36)
+  fileRef   String   @db.VarChar(500)
+  status    String   @default("processing") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([chatbotId])
+  @@index([status])
+}
+
+model KnowledgeChunk {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  documentId  String   @db.Char(36)
+  chunkIndex  Int
+  content     String   @db.Text
+  embeddingRef String? @db.VarChar(500)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([documentId])
+}
+
+// ============================================
+// Campaigns, Messages, Follow-ups
+// ============================================
+
+model MessageTemplate {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  campaignId String? @db.Char(36)
+  channel   String   @db.VarChar(50)
+  name      String   @db.VarChar(200)
+  content   String   @db.Text
+  status    String   @default("draft") @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([channel])
+  @@index([status])
+}
+
+model Message {
+  id             String   @id @default(uuid()) @db.Char(36)
+  tenantId       String   @db.Char(36)
+  leadId         String?  @db.Char(36)
+  conversationId String?  @db.Char(36)
+  channel        String   @db.VarChar(50)
+  providerId     String?  @db.Char(36)
+  status         String   @default("draft") @db.VarChar(50)
+  approvedBy     String?  @db.Char(36)
+  approvedAt     DateTime?
+
+  // Email management workflow (requirement 6)
+  // status: draft | pending_review | approved | rejected | scheduled | sending | sent | failed
+  subject         String?  @db.VarChar(500)
+  body            String?  @db.Text
+  toAddress       String?  @db.VarChar(255)
+  fromAddress     String?  @db.VarChar(255)
+  direction       String   @default("outbound") @db.VarChar(20)
+  generatedBy     String   @default("manual") @db.VarChar(20) // ai | manual
+  rejectedBy      String?  @db.Char(36)
+  rejectedAt      DateTime?
+  rejectionReason String?  @db.VarChar(500)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  meta            Json?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([channel])
+  @@index([status])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model FollowupTask {
+  id             String   @id @default(uuid()) @db.Char(36)
+  tenantId       String   @db.Char(36)
+  leadId         String   @db.Char(36)
+  dueAt          DateTime
+  status         String   @default("pending") @db.VarChar(50)
+  idempotencyKey String   @unique @db.VarChar(255)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([dueAt, status])
+  @@index([status])
+}
+
+// ============================================
+// Consent & Suppression
+// ============================================
+
+model ConsentRecord {
+  id           String   @id @default(uuid()) @db.Char(36)
+  tenantId     String   @db.Char(36)
+  leadId       String   @db.Char(36)
+  purpose      String   @db.VarChar(100)
+  status       String   @default("granted") @db.VarChar(50)
+  capturedAt   DateTime
+  source       String?  @db.VarChar(100)
+  policyVersion String? @db.VarChar(50)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([leadId])
+}
+
+model SuppressionEntry {
+  id           String   @id @default(uuid()) @db.Char(36)
+  tenantId     String   @db.Char(36)
+  contactHash  String   @unique @db.VarChar(255)
+  channel      String   @db.VarChar(50)
+  reason       String   @db.VarChar(200)
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([contactHash])
+  @@index([channel])
+}
+
+// ============================================
+// Integrations
+// ============================================
+
+model Integration {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  provider    String   @db.VarChar(100)
+  status      String   @default("disconnected") @db.VarChar(50)
+  configRef   String?  @db.Text
+  lastSyncAt  DateTime?
+  lastError   String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([provider])
+  @@index([status])
+}
+
+// ============================================
+// Jobs, Outbox, Audit, Files
+// ============================================
+
+model AutomationJob {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  jobType   String   @db.VarChar(100)
+  status    String   @default("pending") @db.VarChar(50)
+  attempts  Int      @default(0)
+  maxAttempts Int   @default(3)
+  runAt     DateTime
+  payload   Json?
+  error     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([jobType, status])
+  @@index([runAt, status])
+}
+
+model OutboxEvent {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  eventType String   @db.VarChar(100)
+  payload   Json?
+  publishedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([publishedAt])
+}
+
+model WebhookEvent {
+  id               String   @id @default(uuid()) @db.Char(36)
+  tenantId         String   @db.Char(36)
+  provider         String   @db.VarChar(100)
+  externalEventId  String   @unique @db.VarChar(255)
+  processedAt      DateTime?
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([provider])
+  @@index([externalEventId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String?  @db.Char(36)
+  actorId   String?  @db.Char(36)
+  action    String   @db.VarChar(200)
+  targetType String? @db.VarChar(100)
+  targetId  String?  @db.Char(36)
+  metadata  Json?
+
+  // Live activity dashboard (requirement 7) & security audit (requirement 11)
+  actorType String @default("user") @db.VarChar(20) // user | ai | system
+  category  String @default("general") @db.VarChar(50) // auth | lead | ai | email | research | config | security | workflow
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, category])
+  @@index([tenantId, actorType])
+}
+
+model FileAsset {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  storageKey String  @db.VarChar(500)
+  mimeType  String   @db.VarChar(100)
+  size      Int
+  checksum  String?  @db.VarChar(128)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model ScoringProfile {
+  id          String   @id @default(uuid()) @db.Char(36)
+  tenantId    String   @db.Char(36)
+  name        String   @db.VarChar(200)
+  description String?  @db.Text
+  fitScoreWeight      Int   @default(30)
+  intentScoreWeight   Int   @default(25)
+  budgetScoreWeight   Int   @default(20)
+  companyFitWeight    Int   @default(15)
+  contactCompletenessWeight Int @default(10)
+  isDefault       Boolean @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([isDefault])
+}
+
+// ============================================
+// Requirement 3: Company registration
+// ============================================
+
+model CompanyProfile {
+  id        String  @id @default(uuid()) @db.Char(36)
+  tenantId  String  @unique @db.Char(36)
+  industry  String? @db.VarChar(100)
+  website   String? @db.VarChar(500)
+  description String? @db.Text
+
+  // Offer catalog: [{name, description, keywords?, priceHint?}]
+  products        Json?
+  // [{name, description, keywords?}]
+  services        Json?
+  // Flexible company attributes: [{key, value}]
+  properties      Json?
+  // [{objective, targetMetric?, horizon?}]
+  salesObjectives Json?
+  // {segments?, locations?, companySizes?, notes?}
+  targetMarket    Json?
+  onboardingCompleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([industry])
+}
+
+// ============================================
+// Requirement 4: Online research (approved sources)
+// ============================================
+
+model ResearchSource {
+  id         String  @id @default(uuid()) @db.Char(36)
+  tenantId   String  @db.Char(36)
+  name       String  @db.VarChar(200)
+  sourceType String  @db.VarChar(50) // directory | search | website | social | api
+  url        String? @db.VarChar(500)
+  approved   Boolean @default(true)
+  config     Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([tenantId, approved])
+}
+
+model ResearchRun {
+  id          String  @id @default(uuid()) @db.Char(36)
+  tenantId    String  @db.Char(36)
+  sourceId    String? @db.Char(36)
+  query       String? @db.VarChar(500)
+  status      String  @default("pending") @db.VarChar(20) // pending | running | completed | failed
+  criteria    Json?
+  results     Json?   // discovered candidates (also materialized as Leads)
+  foundCount  Int     @default(0)
+  createdCount Int    @default(0)
+  error       String? @db.Text
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdById String? @db.Char(36)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([tenantId, createdAt])
+}
+
+// ============================================
+// Requirements 2 & 6: Human approval queue
+// ============================================
+
+model ApprovalItem {
+  id           String  @id @default(uuid()) @db.Char(36)
+  tenantId     String  @db.Char(36)
+  itemType     String  @db.VarChar(50) // email | research_import | outreach | config_change
+  itemRefId    String? @db.Char(36)
+  title        String  @db.VarChar(300)
+  summary      String? @db.Text
+  payload      Json?
+  status       String  @default("pending") @db.VarChar(20) // pending | approved | rejected
+  decidedBy    String? @db.Char(36)
+  decidedAt    DateTime?
+  decisionNote String? @db.VarChar(500)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([itemType])
+  @@index([tenantId, createdAt])
+}
+
+// ============================================
+// Requirement 1 & 7: Autonomous agent runs
+// ============================================
+
+model AgentRun {
+  id       String @id @default(uuid()) @db.Char(36)
+  tenantId String @db.Char(36)
+  trigger  String @default("manual") @db.VarChar(30) // manual | cron | event
+  mode     String @db.VarChar(30) @default("AI_WITH_APPROVAL") // operating mode snapshot
+  status   String @default("running") @db.VarChar(20) // running | completed | failed | paused
+  leadId   String? @db.Char(36)
+  steps    Json?  // [{step, status, detail, at}]
+  summary  String? @db.Text
+  error    String? @db.Text
+  startedAt  DateTime @default(now())
+  finishedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([status])
+}
+
+// ============================================
+// Requirement 9: AI-scheduled meetings
+// ============================================
+
+model Meeting {
+  id        String  @id @default(uuid()) @db.Char(36)
+  tenantId  String  @db.Char(36)
+  leadId    String  @db.Char(36)
+  title     String  @db.VarChar(300)
+  startsAt  DateTime
+  endsAt    DateTime
+  status    String  @default("scheduled") @db.VarChar(20) // proposed | scheduled | completed | canceled
+  notes     String? @db.Text
+  createdBy String  @default("manual") @db.VarChar(20) // ai | manual
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+  @@index([leadId])
+  @@index([tenantId, startsAt])
+}
+
+// ============================================
+// Requirement 10: Super Admin usage limits
+// ============================================
+
+model AIBudget {
+  id                String   @id @default(uuid()) @db.Char(36)
+  tenantId          String?  @db.Char(36) // null = platform-wide default
+  monthlyTokenLimit Int?
+  monthlyCostLimit  Decimal? @db.Decimal(10, 4)
+  alertThreshold    Float    @default(0.8)
+  enforce           Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId])
+}
+
+// ============================================
+// Global AI kill-switch (testing / token saving)
+// ============================================
+
+model AISettings {
+  id        String   @id @default("global") @db.VarChar(20)
+  aiEnabled Boolean  @default(true)
+  updatedBy String?  @db.Char(36)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ============================================
+// Public RAG Knowledge Base (approved public content only)
+// ============================================
+
+model PublicDoc {
+  id        String   @id @default(uuid()) @db.Char(36)
+  title     String   @db.VarChar(200)
+  keywords  Json?    // string[]
+  content   String   @db.Text
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, updatedAt])
+}
+
+// ============================================
+// Per-company AI model overrides (company can enable/disable models)
+// ============================================
+
+model AITenantModel {
+  id        String   @id @default(uuid()) @db.Char(36)
+  tenantId  String   @db.Char(36)
+  modelId   String   @db.Char(36)
+  enabled   Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, modelId])
+  @@index([tenantId])
+}
+
+// ============================================
+// Per-company SMTP (admin-managed mailbox per tenant)
+// ============================================
+
+model SmtpConfig {
+  id                String   @id @default(uuid()) @db.Char(36)
+  tenantId          String   @unique @db.Char(36)
+  host              String   @db.VarChar(255)
+  port              Int      @default(587)
+  secure            Boolean  @default(false)
+  username          String   @db.VarChar(255)
+  passwordEncrypted String   @db.Text
+  fromEmail         String   @db.VarChar(255)
+  fromName          String?  @db.VarChar(200)
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([tenantId])
+}

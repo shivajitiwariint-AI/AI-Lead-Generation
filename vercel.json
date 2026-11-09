@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/dispatch-due-jobs",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}
