@@ -12,32 +12,21 @@ import { Switch } from "@/components/ui/switch";
 import { Check, ChevronLeft, ChevronRight, Sparkles, Bot, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { AiBackground } from "@/components/ai-background";
+import { CountrySelect } from "@/components/country-select";
 import { cn } from "@/lib/utils";
 
 const SEGMENT_OPTIONS = ["SMEs", "Agencies", "B2B SaaS", "Startups", "Mid-market", "Enterprise"];
 
-const COUNTRIES = [
-  "India", "United States", "United Kingdom", "UAE", "Singapore", "Australia",
-  "Germany", "France", "Netherlands", "Spain", "Italy", "Canada", "Brazil",
-  "Mexico", "Argentina", "Japan", "China", "South Korea", "Malaysia", "Thailand",
-  "Indonesia", "Philippines", "Vietnam", "Pakistan", "Bangladesh", "Sri Lanka",
-  "South Africa", "Nigeria", "Kenya", "Egypt", "Saudi Arabia", "Qatar",
-  "Oman", "Kuwait", "Bahrain", "Poland", "Sweden", "Norway", "Denmark",
-  "Finland", "Switzerland", "Austria", "Belgium", "Ireland", "Portugal",
-  "Greece", "Czech Republic", "Romania", "Hungary", "Russia", "Turkey",
-  "Israel", "New Zealand", "Hong Kong", "Taiwan", "Global",
-];
-
 const INDUSTRIES = [
-  { value: "software_it", label: "Software & IT" },
-  { value: "real_estate", label: "Real Estate" },
-  { value: "retail_wholesale", label: "Retail & Wholesale" },
+  { value: "softwareit", label: "Software & IT" },
+  { value: "realestate", label: "Real Estate" },
+  { value: "retailwholesale", label: "Retail & Wholesale" },
   { value: "education", label: "Education" },
   { value: "healthcare", label: "Healthcare" },
-  { value: "travel_hospitality", label: "Travel & Hospitality" },
-  { value: "finance_insurance", label: "Finance & Insurance" },
-  { value: "professional_services", label: "Professional Services" },
-  { value: "manufacturing_b2b", label: "Manufacturing & B2B" },
+  { value: "travelhospitality", label: "Travel & Hospitality" },
+  { value: "financeinsurance", label: "Finance & Insurance" },
+  { value: "professionalservices", label: "Professional Services" },
+  { value: "manufacturingb2b", label: "Manufacturing & B2B" },
   { value: "custom", label: "Other / Custom" },
 ];
 
@@ -56,8 +45,9 @@ const formatIndustry = (value?: string | null) => {
   const match = INDUSTRIES.find((i) => i.value === value);
   if (match) return match.label;
   return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .replace(/-|_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\s+/g, " ");
 };
 
 export default function OnboardingPage() {
@@ -347,18 +337,11 @@ export default function OnboardingPage() {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-white/80">Target locations / countries</Label>
-                  <Select onValueChange={(v) => addCustom("locations", v)}>
-                    <SelectTrigger className="border-white/10 bg-white/5 text-white">
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-64 overflow-y-auto border-white/10 bg-[#0b1024] text-white">
-                      {COUNTRIES.map((c) => (
-                        <SelectItem key={c} value={c} className="text-white focus:bg-white/10 focus:text-white">
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CountrySelect
+                    selected={profile.targetMarket?.locations ?? []}
+                    onSelect={(country) => addCustom("locations", country)}
+                    placeholder="Select any country"
+                  />
                   <div className="flex flex-wrap gap-2">
                     {(profile.targetMarket?.locations ?? []).map((s: string) => (
                       <button

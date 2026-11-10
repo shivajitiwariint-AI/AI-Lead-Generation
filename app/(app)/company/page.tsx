@@ -12,7 +12,7 @@ import { toast } from "sonner";
 type Offer = { name: string; description?: string; keywords?: string[] };
 type Objective = { objective: string; targetMetric?: string; horizon?: string };
 const INDUSTRY_LABELS: Record<string, string> = {
-  software_it: "Software & IT",
+  softwareit: "Software & IT",
   real_estate: "Real Estate",
   retail_wholesale: "Retail & Wholesale",
   education: "Education",

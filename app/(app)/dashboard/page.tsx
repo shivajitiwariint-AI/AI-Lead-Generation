@@ -74,6 +74,7 @@ async function ClientDashboard({ tenantId }: { tenantId: string }) {
     newThisWeek,
     qualifiedCount,
     openOpportunities,
+    bouncedEmails,
     stageCountsRaw,
     recentLeads,
     sourceCountsRaw,
@@ -85,6 +86,7 @@ async function ClientDashboard({ tenantId }: { tenantId: string }) {
     prisma.lead.count({
       where: { tenantId, status: { in: ["qualified", "contacted", "meeting_scheduled"] } },
     }),
+    prisma.message.count({ where: { tenantId, status: "bounced" } }),
     prisma.lead.groupBy({ by: ["status"], where: { tenantId }, _count: { status: true } }),
     prisma.lead.findMany({
       where: { tenantId, createdAt: { gte: thirtyDaysAgo } },
@@ -145,6 +147,7 @@ async function ClientDashboard({ tenantId }: { tenantId: string }) {
         <StatCard title="New This Week" value={String(newThisWeek)} change="leads created this week" trend="up" />
         <StatCard title="Qualified" value={String(qualifiedCount)} change="leads qualified by AI" trend="up" />
         <StatCard title="Open Opportunities" value={String(openOpportunities)} change="in active pipeline" trend="up" />
+        <StatCard title="Bounced Emails" value={String(bouncedEmails)} change={bouncedEmails > 0 ? "hard bounces" : "neutral"} trend="down" />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

@@ -216,7 +216,7 @@ async function main() {
 
   // 8. Create industries
   const industries = [
-    { key: "software_it", name: "Software and IT", description: "ERP, CRM, HRMS, billing software, website, mobile app, AI automation" },
+    { key: "softwareit", name: "Software and IT", description: "ERP, CRM, HRMS, billing software, website, mobile app, AI automation" },
     { key: "real_estate", name: "Real Estate", description: "Buy, sell, rent property; residential flats, plots, commercial" },
     { key: "retail_wholesale", name: "Readymade Products and Retail", description: "Clothing, furniture, electronics, appliances, machinery, wholesale" },
     { key: "education", name: "Education", description: "School/college admission, coaching, certification, training" },

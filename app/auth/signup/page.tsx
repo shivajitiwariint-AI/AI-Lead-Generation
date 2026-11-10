@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AiBackground } from "@/components/ai-background";
 
 const INDUSTRIES = [
-  { value: "software_it", label: "Software & IT (ERP, CRM, SaaS, AI)" },
+  { value: "softwareit", label: "Software & IT (ERP, CRM, SaaS, AI)" },
   { value: "real_estate", label: "Real Estate (buy/sell/rent property)" },
   { value: "retail_wholesale", label: "Retail & Wholesale (products)" },
   { value: "education", label: "Education (school/college/coaching)" },

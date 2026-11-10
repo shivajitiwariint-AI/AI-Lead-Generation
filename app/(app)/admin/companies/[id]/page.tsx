@@ -214,7 +214,7 @@ export default function AdminCompanyDetailPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Leads" value={progress.leads} icon={<Target className="h-4 w-4" />} />
+        <StatCard label="Leads" value={progress.leads} icon={<Target className="h-4 w-4" />} subtitle="Total leads in {company.slug}" />
         <StatCard label="Qualified" value={progress.qualified} icon={<CheckCircle2 className="h-4 w-4" />} />
         <StatCard label="Won" value={progress.won} icon={<CheckCircle2 className="h-4 w-4" />} />
         <StatCard label="Users" value={members.length} icon={<Users className="h-4 w-4" />} />
@@ -385,7 +385,7 @@ export default function AdminCompanyDetailPage() {
   );
 }
 
-function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
+function StatCard({ label, value, icon, subtitle }: { label: string; value: string | number; icon: React.ReactNode; subtitle?: string }) {
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-5">
@@ -393,6 +393,7 @@ function StatCard({ label, value, icon }: { label: string; value: string | numbe
         <div>
           <p className="text-2xl font-bold">{value}</p>
           <p className="text-sm text-muted-foreground">{label}</p>
+          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
         </div>
       </CardContent>
     </Card>

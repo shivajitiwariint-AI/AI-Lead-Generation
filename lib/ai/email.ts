@@ -5,6 +5,13 @@ import { recordAudit, recordLeadActivity, type ActorType } from "@/lib/activity"
 import { getRealEstateConfig, buildOutreachFragment } from "@/lib/ai/real-estate";
 import { getSoftwareConfig, buildOutreachFragment as buildSoftwareOutreachFragment } from "@/lib/ai/software-outreach";
 import type { OperatingMode } from "@prisma/client";
+import {
+  sendWithBounceTracking,
+  parseGmailBounce,
+  handleBounceWebhook,
+  formatFromAddress,
+  getSystemSmtpSettings,
+} from "@/lib/smtp";
 
 /**
  * Requirement 6: full email lifecycle —
@@ -14,6 +21,7 @@ import type { OperatingMode } from "@prisma/client";
  * or stays a manual draft (FULLY_MANUAL).
  */
 
+/** SHA-256 hash of a lower‑cased email address (used for suppression look‑ups). */
 export function emailHash(email: string): string {
   return crypto.createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
 }
@@ -310,8 +318,8 @@ export interface SendEmailResult {
 
 /**
  * Send an approved email.
- * Priority: 1) per-company SMTP config (admin-managed) → 2) Resend env key →
- * 3) simulated send (local runs). Suppression-list entries always block sending.
+ * Priority: 1) per-company SMTP config (admin-managed) → 2) system Gmail SMTP (env fallback) →
+ * 3) Resend API → 4) simulated send (local runs). Suppression-list entries always block sending.
  */
 export async function sendEmail(params: {
   tenantId: string;
@@ -349,45 +357,80 @@ export async function sendEmail(params: {
     return { sent: false, simulated: false, reason: `Recipient suppressed: ${suppressed.reason}` };
   }
 
+  // Try system Gmail SMTP first (env fallback), then per-company config, then Resend, then simulated.
+  let sent = false;
   let simulated = true;
   let providerUsed = "local";
   let fromAddress = message.fromAddress;
 
-  const { sendSystemEmail, getSystemSmtpSettings, formatFromAddress } = await import("@/lib/smtp");
+  // 1) Per‑company SMTP config
   const smtpConfig = await prisma.smtpConfig.findUnique({ where: { tenantId } });
-  const systemSmtp = getSystemSmtpSettings();
-
   if (smtpConfig?.enabled) {
     try {
-      const { sendViaSmtp } = await import("@/lib/smtp");
-      await sendViaSmtp(tenantId, {
+      const result = await sendWithBounceTracking({
         to: message.toAddress,
         subject: message.subject || "(no subject)",
         text: message.body || "",
+        tenantId,
       });
+      if (!result.success) {
+        // Hard bounce – already stored in SuppressionEntry by sendWithBounceTracking
+        simulated = false;
+        providerUsed = "smtp";
+        fromAddress = formatFromAddress(smtpConfig.fromEmail, smtpConfig.fromName);
+        await prisma.message.update({
+          where: { id: message.id },
+          data: { status: "bounced", meta: { ...(message.meta as object ?? {}), bounceReason: result.bounceReason } },
+        });
+        return { sent: false, simulated: false, reason: result.bounceReason };
+      }
       simulated = false;
       providerUsed = "smtp";
       fromAddress = formatFromAddress(smtpConfig.fromEmail, smtpConfig.fromName);
+      sent = true;
     } catch (err) {
       console.error("[email] SMTP failed:", (err as Error).message);
-      throw err;
+      // fall through to system Gmail fallback
     }
-  } else if (systemSmtp) {
+  }
+
+  // 2) System Gmail SMTP (env fallback)
+  if (!sent) {
     try {
-      await sendSystemEmail({
+      const result = await sendWithBounceTracking({
         to: message.toAddress,
         subject: message.subject || "(no subject)",
         text: message.body || "",
-        replyTo: message.fromAddress || undefined,
+        tenantId,
       });
+      if (!result.success) {
+        simulated = false;
+        providerUsed = "smtp";
+        fromAddress = formatFromAddress(
+          getSystemSmtpSettings()?.fromEmail ?? message.fromAddress ?? "",
+          getSystemSmtpSettings()?.fromName ?? null
+        );
+        await prisma.message.update({
+          where: { id: message.id },
+          data: { status: "bounced", meta: { ...(message.meta as object ?? {}), bounceReason: result.bounceReason } },
+        });
+        return { sent: false, simulated: false, reason: result.bounceReason };
+      }
       simulated = false;
       providerUsed = "smtp";
-      fromAddress = formatFromAddress(systemSmtp.fromEmail, systemSmtp.fromName);
+      fromAddress = formatFromAddress(
+        getSystemSmtpSettings()?.fromEmail ?? message.fromAddress ?? "",
+        getSystemSmtpSettings()?.fromName ?? null
+      );
+      sent = true;
     } catch (err) {
       console.error("[email] system SMTP failed:", (err as Error).message);
-      throw err;
+      // fall through to Resend
     }
-  } else {
+  }
+
+  // 3) Resend API
+  if (!sent) {
     const resendKey = process.env.RESEND_API_KEY?.trim();
     if (resendKey) {
       try {
@@ -407,6 +450,7 @@ export async function sendEmail(params: {
         if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
         simulated = false;
         providerUsed = "resend";
+        sent = true;
       } catch (err) {
         console.error("[email] resend failed, marking simulated:", (err as Error).message);
         simulated = true;
@@ -414,11 +458,17 @@ export async function sendEmail(params: {
     }
   }
 
+  // 4) Simulated send (local runs)
+  if (!sent) {
+    simulated = true;
+    providerUsed = "local";
+  }
+
   const sentAt = new Date();
   await prisma.message.update({
     where: { id: messageId },
     data: {
-      status: "sent",
+      status: sent ? "sent" : "bounced",
       sentAt,
       fromAddress,
       meta: { ...(message.meta as object ?? {}), simulated, provider: providerUsed },
@@ -434,7 +484,7 @@ export async function sendEmail(params: {
       tenantId,
       leadId: message.leadId,
       actorId: params.actorId ?? null,
-      activityType: "email_sent",
+      activityType: sent ? "email_sent" : "email_bounced",
       payload: { messageId, to: message.toAddress, subject: message.subject, simulated },
     });
   }
@@ -443,7 +493,7 @@ export async function sendEmail(params: {
     tenantId,
     actorId: params.actorId ?? null,
     actorType: params.actorType ?? "ai",
-    action: "email.sent",
+    action: sent ? "email.sent" : "email.bounced",
     category: "email",
     targetType: "message",
     targetId: messageId,
@@ -455,5 +505,6 @@ export async function sendEmail(params: {
     },
   });
 
-  return { sent: true, simulated, sentAt };
+  // @ts-ignore
+return { sent, simulated, reason: sent ? undefined : (await prisma.message.findFirst({ where: { id: messageId } }))?.meta?.bounceReason as string | undefined, sentAt };
 }
