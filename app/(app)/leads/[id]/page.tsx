@@ -20,6 +20,7 @@ import { LeadTakeoverToggle } from "@/components/lead-takeover-toggle";
 import { DeleteLeadButton } from "@/components/delete-lead-button";
 import { LeadOwnerAssign } from "@/components/lead-owner-assign";
 import Link from "next/link";
+import { formatIndustry } from "@/lib/industry";
 
 const STATUS_OPTIONS: Record<string, string> = {
   new: "bg-blue/10 text-blue border-blue/20",
@@ -117,7 +118,7 @@ export default async function LeadDetailPage({
               <div>
                 <CardTitle>{lead.name}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {lead.company || "No company"} • {lead.industry ? lead.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "No industry"}
+                  {lead.company || "No company"} • {formatIndustry(lead.industry)}
                 </p>
               </div>
               <Badge variant="outline" className={statusClass}>
@@ -171,7 +172,7 @@ export default async function LeadDetailPage({
                     <div>
                       <p className="text-sm font-medium">Industry</p>
                       <p className="text-sm text-muted-foreground">
-                        {lead.industry ? lead.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "-"}
+                        {formatIndustry(lead.industry)}
                       </p>
                     </div>
                   </div>

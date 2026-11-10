@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "@/components/link";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { formatIndustry } from "@/lib/industry";
 import {
   Activity,
   AlertTriangle,
@@ -238,7 +239,7 @@ async function ClientDashboard({ tenantId }: { tenantId: string }) {
                         {lead?.name ?? "Follow-up"}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {lead?.industry ? lead.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "General"} · due {new Date(f.dueAt).toLocaleString()}
+                        {formatIndustry(lead?.industry)} · due {new Date(f.dueAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -574,7 +575,7 @@ async function SuperAdminDashboard() {
                             {c.name}
                           </Link>
                           <p className="text-xs text-muted-foreground">
-                            {profile?.industry ? profile.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : c.slug}
+                            {formatIndustry(profile?.industry) !== "—" ? formatIndustry(profile?.industry) : c.slug}
                           </p>
                         </td>
                         <td className="py-3">

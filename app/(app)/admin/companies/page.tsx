@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Building2, Users, Target, Mail, Calendar, DollarSign, Eye, CheckCircle2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatIndustry } from "@/lib/industry";
 
 interface Company {
   id: string;
@@ -94,7 +95,7 @@ export default function AdminCompaniesPage() {
                     )}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {c.industry ? c.industry.replace(/_/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()) : "—"} · {c.slug} · joined {new Date(c.createdAt).toLocaleDateString()}
+                    {formatIndustry(c.industry)} · {c.slug} · joined {new Date(c.createdAt).toLocaleDateString()}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Mode: {c.operatingMode.replace(/_/g, " ")} {c.automationPaused ? "· PAUSED" : ""}

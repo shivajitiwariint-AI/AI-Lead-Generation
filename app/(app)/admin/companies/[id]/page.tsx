@@ -29,6 +29,7 @@ import { SoftwareOutreachCard } from "@/components/software-outreach-card";
 import { CompanyAIModelsCard } from "@/components/company-ai-models-card";
 import { SmtpCard } from "@/components/smtp-card";
 import { toast } from "sonner";
+import { formatIndustry } from "@/lib/industry";
 
 const MODULES = [
   { key: "leads", label: "Leads" },
@@ -184,10 +185,7 @@ export default function AdminCompanyDetailPage() {
   if (!data) return null;
 
   const { company, profile, members, progress, recentActivity } = data;
-  const formatIndustry = (value?: string | null) => {
-    if (!value) return "—";
-    return value.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-  };
+  
 
   return (
     <div className="space-y-6">
@@ -351,7 +349,7 @@ export default function AdminCompanyDetailPage() {
             {showSW && <SoftwareOutreachCard tenantId={id} />}
             {!showRE && !showSW && (
               <p className="text-sm text-muted-foreground">
-                No industry-specific outreach pack for “{profile?.industry ? profile.industry.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "unknown"}”. Update Industry in onboarding to enable Real Estate or Software AI.
+                No industry-specific outreach pack for “{formatIndustry(profile?.industry)}”. Update Industry in onboarding to enable Real Estate or Software AI.
               </p>
             )}
           </>

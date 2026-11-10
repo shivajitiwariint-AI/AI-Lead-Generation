@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Check, ChevronLeft, ChevronRight, Sparkles, Bot, Rocket } from "lucide-react";
 import { toast } from "sonner";
 import { AiBackground } from "@/components/ai-background";
+import { formatIndustry } from "@/lib/industry";
 import { CountrySelect } from "@/components/country-select";
 import { cn } from "@/lib/utils";
 
@@ -39,14 +40,6 @@ const STEPS = [
 ];
 
 type Offer = { name: string; description?: string; keywords?: string[] };
-
-const formatIndustry = (value?: string | null) => {
-  if (!value) return "—";
-  return value
-    .replace(/-|_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-    .replace(/\s+/g, " ");
-};
 
 export default function OnboardingPage() {
   const router = useRouter();

@@ -12,6 +12,7 @@ import { SearchScheduleCard } from "@/components/search-schedule-card";
 import { RealEstateCard } from "@/components/real-estate-card";
 import { SoftwareOutreachCard } from "@/components/software-outreach-card";
 import { toast } from "sonner";
+import { formatIndustry } from "@/lib/industry";
 
 interface Source {
   id: string;
@@ -304,7 +305,7 @@ export default function ResearchPage() {
             {showRE && <RealEstateCard />}
             {showSW && <SoftwareOutreachCard />}
             {!showRE && !showSW && (
-              <p className="text-sm text-muted-foreground">No industry-specific outreach pack for “{profile?.industry ? profile.industry.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "unknown"}”.</p>
+              <p className="text-sm text-muted-foreground">No industry-specific outreach pack for “{formatIndustry(profile?.industry)}”.</p>
             )}
           </>
         );
