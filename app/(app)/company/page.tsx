@@ -13,13 +13,13 @@ type Offer = { name: string; description?: string; keywords?: string[] };
 type Objective = { objective: string; targetMetric?: string; horizon?: string };
 const INDUSTRY_LABELS: Record<string, string> = {
   softwareit: "Software & IT",
-  real_estate: "Real Estate",
-  retail_wholesale: "Retail & Wholesale",
+  realestate: "Real Estate",
+  retailwholesale: "Retail & Wholesale",
   education: "Education",
   healthcare: "Healthcare",
-  travel_hospitality: "Travel & Hospitality",
-  finance_insurance: "Finance & Insurance",
-  professional_services: "Professional Services",
+  travelhospitality: "Travel & Hospitality",
+  financeinsurance: "Finance & Insurance",
+  professionalservices: "Professional Services",
   manufacturing_b2b: "Manufacturing & B2B",
   custom: "Other / Custom",
 };

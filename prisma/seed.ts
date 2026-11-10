@@ -217,13 +217,13 @@ async function main() {
   // 8. Create industries
   const industries = [
     { key: "softwareit", name: "Software and IT", description: "ERP, CRM, HRMS, billing software, website, mobile app, AI automation" },
-    { key: "real_estate", name: "Real Estate", description: "Buy, sell, rent property; residential flats, plots, commercial" },
-    { key: "retail_wholesale", name: "Readymade Products and Retail", description: "Clothing, furniture, electronics, appliances, machinery, wholesale" },
+    { key: "realestate", name: "Real Estate", description: "Buy, sell, rent property; residential flats, plots, commercial" },
+    { key: "retailwholesale", name: "Readymade Products and Retail", description: "Clothing, furniture, electronics, appliances, machinery, wholesale" },
     { key: "education", name: "Education", description: "School/college admission, coaching, certification, training" },
     { key: "healthcare", name: "Healthcare", description: "Clinic appointments, diagnostic services, healthcare packages" },
-    { key: "travel_hospitality", name: "Travel and Hospitality", description: "Holiday packages, hotel bookings, visa assistance, tours" },
-    { key: "finance_insurance", name: "Finance and Insurance", description: "Business finance, loans, insurance enquiries" },
-    { key: "professional_services", name: "Professional Services", description: "Digital marketing, SEO, accounting, consulting, recruitment, legal" },
+    { key: "travelhospitality", name: "Travel and Hospitality", description: "Holiday packages, hotel bookings, visa assistance, tours" },
+    { key: "financeinsurance", name: "Finance and Insurance", description: "Business finance, loans, insurance enquiries" },
+    { key: "professionalservices", name: "Professional Services", description: "Digital marketing, SEO, accounting, consulting, recruitment, legal" },
     { key: "manufacturing_b2b", name: "Manufacturing and B2B", description: "Raw materials, industrial equipment, contract manufacturing, distribution" },
     { key: "custom", name: "Other / Custom", description: "Any company-defined product or service" },
   ];

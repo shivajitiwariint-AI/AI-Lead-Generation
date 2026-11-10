@@ -14,13 +14,13 @@ import { AiBackground } from "@/components/ai-background";
 
 const INDUSTRIES = [
   { value: "softwareit", label: "Software & IT (ERP, CRM, SaaS, AI)" },
-  { value: "real_estate", label: "Real Estate (buy/sell/rent property)" },
-  { value: "retail_wholesale", label: "Retail & Wholesale (products)" },
+  { value: "realestate", label: "Real Estate (buy/sell/rent property)" },
+  { value: "retailwholesale", label: "Retail & Wholesale (products)" },
   { value: "education", label: "Education (school/college/coaching)" },
   { value: "healthcare", label: "Healthcare (clinic/diagnostics)" },
-  { value: "travel_hospitality", label: "Travel & Hospitality" },
-  { value: "finance_insurance", label: "Finance & Insurance" },
-  { value: "professional_services", label: "Professional Services (marketing, consulting, legal)" },
+  { value: "travelhospitality", label: "Travel & Hospitality" },
+  { value: "financeinsurance", label: "Finance & Insurance" },
+  { value: "professionalservices", label: "Professional Services (marketing, consulting, legal)" },
   { value: "manufacturing_b2b", label: "Manufacturing & B2B" },
   { value: "custom", label: "Other / Custom" },
 ];
