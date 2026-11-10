@@ -158,8 +158,7 @@ export function parseGmailBounce(errorMessage: string): string {
   if (/5\.5\.2/.test(lower)) return "hard_bounce_address_rejected";
   if (/4\.2\.2|4\.2\.3/.test(lower)) return "soft_bounce_mailbox_full";
   if (/4\.3\.2/.test(lower)) return "soft_bounce_system_full";
-  // @ts-ignore
-  if (/^4\./test(lower)) return "soft_bounce_transient";
+  if (lower.startsWith("4.")) return "soft_bounce_transient";
   return "hard_bounce";
 }
 
