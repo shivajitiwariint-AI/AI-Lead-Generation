@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +11,20 @@ import { toast } from "sonner";
 interface Workspace { tenantId: string; name: string; slug: string; status: string }
 
 export default function SelectWorkspacePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#050816]">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-cyan-400 border-t-transparent" />
+        </div>
+      }
+    >
+      <SelectWorkspaceContent />
+    </Suspense>
+  );
+}
+
+function SelectWorkspaceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, update } = useSession();
