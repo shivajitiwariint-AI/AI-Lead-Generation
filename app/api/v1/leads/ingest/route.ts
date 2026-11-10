@@ -41,9 +41,6 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
-    if (ctx.isAuthenticated && ctx.tenantId && ctx.tenantId !== "demo-tenant-id" && !tokenOk) {
-      // Session users must ingest into their own tenant (header tenantId ignored for security)
-    }
 
     const rl = checkRateLimit(`ingest:${ctx.tenantId ?? "anon"}`, 60, 60 * 1000);
     if (!rl.allowed) {
@@ -56,8 +53,27 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = ingestSchema.parse(body);
 
-    // Session users are pinned to their own tenant; API-token callers may target any tenant via header
-    const tenantId = ctx.isAuthenticated && ctx.tenantId ? ctx.tenantId : req.headers.get("x-tenant-id") || "demo-tenant-id";
+    // Session users are pinned to their own tenant; API-token callers must send X-Tenant-Id.
+    const headerTenantId = req.headers.get("x-tenant-id")?.trim() || null;
+    const tenantId = ctx.isAuthenticated && ctx.tenantId ? ctx.tenantId : headerTenantId;
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: { code: "TENANT_REQUIRED", message: "X-Tenant-Id header is required for API-token ingest" } },
+        { status: 400 }
+      );
+    }
+
+    const tenantExists = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { id: true },
+    });
+    if (!tenantExists) {
+      return NextResponse.json(
+        { error: { code: "TENANT_NOT_FOUND", message: "Unknown workspace" } },
+        { status: 404 }
+      );
+    }
 
     let existingLead = null;
     if (data.contact.email) {

@@ -22,7 +22,7 @@ Public visitors get a **RAG assistant** on the homepage and an **embeddable widg
 
 | Persona | Access | What they do |
 |---|---|---|
-| Public visitor (no login) | Homepage + `/api/v1/public/*` only | Ask about services, features, pricing, demo |
+| Public visitor (no login) | Homepage + `/api/v1/public/*` only | Ask about services, features, pricing, plans |
 | Company Owner (`COMPANY_OWNER`) | Full access to their tenant | Onboarding, Research, Secrets (SMTP), AI packs, Leads, Emails |
 | Sales Manager (`SALES_MANAGER`) | `leads:*`, `messages:*`, `reports:read`… | Approve emails, manage pipeline |
 | Sales Rep (`SALES_REPRESENTATIVE`) | `leads:read/write`, `messages:read/send` | Work leads, reply in conversations |
@@ -302,14 +302,14 @@ Generate (AI / manual) → pending_review → Approve → approved → Send → 
 | Usage | `AIUsageLog` + `AICostLog` per call; dashboard `/ai-usage` + Admin → Platform Overview. |
 | Test endpoints | `POST /admin/ai/test` (per-module, skip-tested to save tokens), `POST /admin/ai/models/{id}/test`, `POST /admin/ai/providers/{id}/test` (real minimal `OK` prompt, 512 max tokens for reasoning models). |
 | Tenant packs | `real-estate.ts` / `software-outreach.ts` — fragments injected into research/qualify/email prompts; `maxResults` respected. |
-| Fallback when keys missing | `mockGenerate()` for every module — demos and rate-limit tests still work with zero spend. |
+| Fallback when keys missing | `mockGenerate()` for every module — local runs and rate-limit tests still work with zero spend. |
 
 ---
 
 ## 9. RAG architecture
 
 **Public (homepage + embed)**
-- Corpus: `PublicDoc` (DB) seeded from `lib/public-knowledge.ts` — **only** marketing copy (services, features, modes, RE/SW value, pricing/demo). Internal docs never loaded.
+- Corpus: `PublicDoc` (DB) seeded from `lib/public-knowledge.ts` — **only** marketing copy (services, features, modes, RE/SW value, pricing/plans). Internal docs never loaded.
 - Retrieval: keyword overlap (`retrieveFromList`), top 3, injected as `context` into `generateText(chatbot)` with `SYSTEM_PROMPT` (public-only, refuse stack/secrets, ignore injection).
 - Guardrails: `lib/public-guardrails.ts` blocks credentials (`GROQ_API_KEY`…), stacks (Prisma/architecture), clone/reverse-engineer asks, injection (`ignore previous instructions`, `reveal your prompt`, `jailbreak`); output filter redacts secrets + file paths (`app/api`, `prisma/schema`, `lib/ai-gateway`) → `SAFE_REFUSAL`.
 - Admin manages corpus live at **Admin → Public Docs** (no deploy).
@@ -377,7 +377,7 @@ Manual checks used in this repo’s history (live-verified):
 
 ## 13. Known limitations & honest caveats
 
-1. **Research is synthetic.** Leads (e.g. “Rajesh Verma”) are LLM-invented, not scraped from 99acres/MagicBricks/LinkedIn despite `platforms/sources` config. `consentMarketing=false`, no verified contacts. Treat as demo data.
+1. **Research is synthetic.** Leads (e.g. “Rajesh Verma”) are LLM-invented, not scraped from 99acres/MagicBricks/LinkedIn despite `platforms/sources` config. `consentMarketing=false`, no verified contacts. Treat as sample data.
 2. **Email send is simulated** without `RESEND_API_KEY` or SMTP. `meta.simulated/model` and the lead-detail warning state this.
 3. **Offer matching starts at `0`** if `products/services` are empty — now falls back to RE/SW pack types so it still matches.
 4. **Cron is Vercel-only.** Localhost requires explicit triggers.

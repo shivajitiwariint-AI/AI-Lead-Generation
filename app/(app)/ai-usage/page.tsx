@@ -126,7 +126,7 @@ export default function AIUsagePage() {
 
       const res = await fetch(
         `/api/v1/admin/ai/usage?${params.toString()}`,
-        { headers: { "X-Tenant-Id": "demo-tenant-id" } }
+        { headers: { "X-Tenant-Id": "default-tenant-id" } }
       );
 
       if (res.ok) {

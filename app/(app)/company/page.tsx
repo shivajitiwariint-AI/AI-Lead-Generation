@@ -400,7 +400,7 @@ export default function CompanyPage() {
           {(profile.salesObjectives ?? []).map((o, i) => (
             <div key={i} className="grid gap-2 rounded-lg border border-border p-3 sm:grid-cols-3">
               <Input
-                placeholder="Objective (e.g. Book 20 demos)"
+                placeholder="Objective (e.g. Close 20 deals)"
                 value={o.objective}
                 onChange={(e: any) => {
                   const next = [...(profile.salesObjectives ?? [])];

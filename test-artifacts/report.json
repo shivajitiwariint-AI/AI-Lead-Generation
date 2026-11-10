@@ -24,7 +24,7 @@
       "notFound": false,
       "redirected": false,
       "shot": "test-artifacts\\02-signin.png",
-      "textSample": "Back to home Welcome back Access your AI Lead Generation workspace AI agent live Sign in Don't have an account? Sign up Demo: admin@demo.com / Admin123!"
+      "textSample": "Back to home Welcome back Access your AI Lead Generation workspace AI agent live Sign in Don't have an account? Sign up"
     },
     {
       "label": "03-signup",

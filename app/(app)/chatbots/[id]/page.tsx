@@ -41,7 +41,7 @@ function ConfigureForm() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/chatbots", { headers: { "X-Tenant-Id": "demo-tenant-id" } });
+      const res = await fetch("/api/v1/chatbots", { headers: { "X-Tenant-Id": "default-tenant-id" } });
       const list = await res.json().catch(() => []);
       const found = (Array.isArray(list) ? list : []).find((b: any) => b.id === id);
       if (!found) {
@@ -72,7 +72,7 @@ function ConfigureForm() {
     try {
       const res = await fetch(`/api/v1/chatbots/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Id": "default-tenant-id" },
         body: JSON.stringify({
           name: name.trim(),
           status: enabled ? "active" : "inactive",

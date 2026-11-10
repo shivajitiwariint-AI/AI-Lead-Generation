@@ -395,7 +395,7 @@ export async function runWorkflow(opts: RunOptions): Promise<WorkflowResult> {
     for (const f of due) {
       const lead = await prisma.lead.findFirst({ where: { id: f.leadId, tenantId } });
       if (!lead || lead.controlMode !== "ai") continue;
-      // For demo: mark processed + record an AI follow-up activity; email drafted in outreach stage already covers intro.
+      // For now: mark processed + record an AI follow-up activity; email drafted in outreach stage already covers intro.
       await prisma.followupTask.update({
         where: { id: f.id },
         data: { status: "completed" },

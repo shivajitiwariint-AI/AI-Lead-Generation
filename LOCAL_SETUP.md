@@ -32,9 +32,9 @@ This creates all tables and seeds:
 - Roles: Super Admin, Company Owner, Sales Manager, Sales Rep, Analyst
 - Industries: 10 categories
 - AI Providers: Anthropic, Gemini, Grok, Ollama, OpenAI
-- Demo tenant + admin user
+- Starter tenant + admin user
 
-**Demo login:** `admin@demo.com` / `Admin123!`
+**Starter login:** `admin@example.com` / `Admin123!`
 
 ### 4. Run the App
 ```bash

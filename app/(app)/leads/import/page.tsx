@@ -30,7 +30,7 @@ export default function ImportPage() {
       const res = await fetch("/api/v1/leads/import", {
         method: "POST",
         headers: {
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: formData,
       });

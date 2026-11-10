@@ -67,8 +67,8 @@ export default function AIModelsPage() {
     setLoading(true);
     try {
       const [modelsRes, providersRes] = await Promise.all([
-        fetch("/api/v1/admin/ai/models", { headers: { "X-Tenant-Id": "demo-tenant-id" } }),
-        fetch("/api/v1/admin/ai/providers", { headers: { "X-Tenant-Id": "demo-tenant-id" } }),
+        fetch("/api/v1/admin/ai/models", { headers: { "X-Tenant-Id": "default-tenant-id" } }),
+        fetch("/api/v1/admin/ai/providers", { headers: { "X-Tenant-Id": "default-tenant-id" } }),
       ]);
       if (modelsRes.ok) {
         const data = await modelsRes.json();
@@ -95,7 +95,7 @@ export default function AIModelsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify(newModel),
       });

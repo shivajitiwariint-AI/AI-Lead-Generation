@@ -169,7 +169,7 @@ export async function drainJobs(opts?: {
   return { claimed, completed, failed, details };
 }
 
-/** Convenience: enqueue then immediately drain (keeps the demo responsive). */
+/** Convenience: enqueue then immediately drain (keeps local runs responsive). */
 export async function enqueueJob(params: {
   tenantId: string;
   jobType: string;

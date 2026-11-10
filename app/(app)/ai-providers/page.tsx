@@ -79,7 +79,7 @@ export default function AIProvidersPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/v1/admin/ai/providers", {
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) {
         const data = await res.json();
@@ -102,7 +102,7 @@ export default function AIProvidersPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify(newProvider),
       });
@@ -128,7 +128,7 @@ export default function AIProvidersPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({ apiKey: key }),
       });
@@ -153,7 +153,7 @@ export default function AIProvidersPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({ enabled: !current }),
       });
@@ -168,7 +168,7 @@ export default function AIProvidersPage() {
     try {
       const res = await fetch(`/api/v1/admin/ai/providers/${id}`, {
         method: "DELETE",
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) await fetchProviders();
     } catch {
@@ -183,7 +183,7 @@ export default function AIProvidersPage() {
         `/api/v1/admin/ai/providers/${id}/test`,
         {
           method: "POST",
-          headers: { "X-Tenant-Id": "demo-tenant-id" },
+          headers: { "X-Tenant-Id": "default-tenant-id" },
         }
       );
       if (res.ok) {

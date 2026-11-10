@@ -27,7 +27,7 @@ export default function PipelinePage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/v1/leads?limit=100`, {
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) {
         const data = await res.json();

@@ -82,7 +82,7 @@ export default function NewLeadPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({
           name: formData.name,

@@ -17,7 +17,7 @@ export const PUBLIC_DOCS: PublicDoc[] = [
     title: "What AI Lead Gen is",
     keywords: ["what", "service", "product", "platform", "about", "ai lead gen"],
     content:
-      "AI Lead Gen is a multi-tenant AI sales automation platform that helps sales teams capture, score, and engage leads end-to-end. You choose how autonomous it is: fully automated, AI-drafted with human approval, or fully manual. Start with a free trial and a live demo workspace using admin@demo.com.",
+      "AI Lead Gen is a multi-tenant AI sales automation platform that helps sales teams capture, score, and engage leads end-to-end. You choose how autonomous it is: fully automated, AI-drafted with human approval, or fully manual. Start with a free trial and explore the platform with your own data.",
   },
   {
     id: "features-scoring",
@@ -31,7 +31,7 @@ export const PUBLIC_DOCS: PublicDoc[] = [
     title: "Website Chatbot",
     keywords: ["chatbot", "website", "visitor", "qualify", "capture", "24/7"],
     content:
-      "The website chatbot qualifies visitors 24/7, captures contact details, and hands over structured leads automatically. It answers common questions, collects name and email, and books a demo when the visitor is ready.",
+      "The website chatbot qualifies visitors 24/7, captures contact details, and hands over structured leads automatically. It answers common questions, collects name and email, and books a meeting when the visitor is ready.",
   },
   {
     id: "features-pipeline",
@@ -76,11 +76,11 @@ export const PUBLIC_DOCS: PublicDoc[] = [
       "For software agencies the assistant finds local businesses with outdated websites or no digital systems (schools, clinics, wholesalers, factories, startups), scores them by scaling potential and visible contact details, and pitches website modernization, dashboards, ERP, inventory and cloud deployment in a short, human-like tone.",
   },
   {
-    id: "pricing-demo",
-    title: "Pricing and demo",
-    keywords: ["price", "pricing", "cost", "demo", "trial", "quote", "plan"],
+    id: "pricing-plans",
+    title: "Pricing and plans",
+    keywords: ["price", "pricing", "cost", "trial", "quote", "plan"],
     content:
-      "Pricing depends on team size and usage — plans start small and scale as you grow. Use the live demo (admin@demo.com) with your own data, or start a free trial and a specialist will send a tailored quote. No credit card is needed to explore the demo.",
+      "Pricing depends on team size and usage — plans start small and scale as you grow. Start a free trial and a specialist will send a tailored quote. No credit card is needed to get started.",
   },
   {
     id: "security-privacy",

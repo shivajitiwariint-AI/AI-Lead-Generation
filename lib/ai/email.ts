@@ -311,7 +311,7 @@ export interface SendEmailResult {
 /**
  * Send an approved email.
  * Priority: 1) per-company SMTP config (admin-managed) → 2) Resend env key →
- * 3) simulated send (demos). Suppression-list entries always block sending.
+ * 3) simulated send (local runs). Suppression-list entries always block sending.
  */
 export async function sendEmail(params: {
   tenantId: string;
@@ -351,7 +351,12 @@ export async function sendEmail(params: {
 
   let simulated = true;
   let providerUsed = "local";
+  let fromAddress = message.fromAddress;
+
+  const { sendSystemEmail, getSystemSmtpSettings, formatFromAddress } = await import("@/lib/smtp");
   const smtpConfig = await prisma.smtpConfig.findUnique({ where: { tenantId } });
+  const systemSmtp = getSystemSmtpSettings();
+
   if (smtpConfig?.enabled) {
     try {
       const { sendViaSmtp } = await import("@/lib/smtp");
@@ -362,35 +367,51 @@ export async function sendEmail(params: {
       });
       simulated = false;
       providerUsed = "smtp";
+      fromAddress = formatFromAddress(smtpConfig.fromEmail, smtpConfig.fromName);
     } catch (err) {
       console.error("[email] SMTP failed:", (err as Error).message);
       throw err;
     }
-  } else {
-  const resendKey = process.env.RESEND_API_KEY?.trim();
-  if (resendKey) {
+  } else if (systemSmtp) {
     try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${resendKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          from: message.fromAddress || "AI Lead Gen <onboarding@resend.dev>",
-          to: [message.toAddress],
-          subject: message.subject || "(no subject)",
-          html: (message.body || "").replace(/\n/g, "<br/>"),
-        }),
+      await sendSystemEmail({
+        to: message.toAddress,
+        subject: message.subject || "(no subject)",
+        text: message.body || "",
+        replyTo: message.fromAddress || undefined,
       });
-      if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
       simulated = false;
-      providerUsed = "resend";
+      providerUsed = "smtp";
+      fromAddress = formatFromAddress(systemSmtp.fromEmail, systemSmtp.fromName);
     } catch (err) {
-      console.error("[email] resend failed, marking simulated:", (err as Error).message);
-      simulated = true;
+      console.error("[email] system SMTP failed:", (err as Error).message);
+      throw err;
     }
-  }
+  } else {
+    const resendKey = process.env.RESEND_API_KEY?.trim();
+    if (resendKey) {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${resendKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            from: message.fromAddress || "AI Lead Gen <onboarding@resend.dev>",
+            to: [message.toAddress],
+            subject: message.subject || "(no subject)",
+            html: (message.body || "").replace(/\n/g, "<br/>"),
+          }),
+        });
+        if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
+        simulated = false;
+        providerUsed = "resend";
+      } catch (err) {
+        console.error("[email] resend failed, marking simulated:", (err as Error).message);
+        simulated = true;
+      }
+    }
   }
 
   const sentAt = new Date();
@@ -399,7 +420,7 @@ export async function sendEmail(params: {
     data: {
       status: "sent",
       sentAt,
-      fromAddress: smtpConfig?.enabled ? smtpConfig.fromEmail : message.fromAddress,
+      fromAddress,
       meta: { ...(message.meta as object ?? {}), simulated, provider: providerUsed },
     },
   });

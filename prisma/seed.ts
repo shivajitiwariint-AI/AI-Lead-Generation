@@ -129,11 +129,11 @@ async function main() {
     ],
   });
 
-  // 5. Create default tenant (demo company)
-  const demoTenant = await prisma.tenant.create({
+  // 5. Create default tenant (starter workspace)
+  const defaultTenant = await prisma.tenant.create({
     data: {
-      name: "Demo Company",
-      slug: "demo",
+      name: "Acme Group",
+      slug: "acme-group",
       status: "ACTIVE",
       timezone: "UTC",
       planId: growthPlan.id,
@@ -142,7 +142,7 @@ async function main() {
 
   await prisma.subscription.create({
     data: {
-      tenantId: demoTenant.id,
+      tenantId: defaultTenant.id,
       planId: growthPlan.id,
       status: "ACTIVE",
       currentPeriodStart: new Date(),
@@ -156,7 +156,7 @@ async function main() {
   const adminUser = await prisma.user.create({
     data: {
       name: "Admin User",
-      email: "admin@demo.com",
+      email: "admin@example.com",
       password: hashedPassword,
       status: "ACTIVE",
       emailVerified: new Date(),
@@ -166,11 +166,11 @@ async function main() {
   // 7b. Company profile (requirement 3) + research sources (requirement 4) + budget (req 10)
   await prisma.companyProfile.create({
     data: {
-      tenantId: demoTenant.id,
+      tenantId: defaultTenant.id,
       industry: "Software and IT",
-      website: "https://demo-company.example.com",
+      website: "https://acme-group.example.com",
       description:
-        "Demo Company sells AI-powered lead generation and sales automation software to B2B SMEs.",
+        "Acme Group sells AI-powered lead generation and sales automation software to B2B SMEs.",
       products: [
         { name: "AI Lead Gen Suite", description: "Capture, score and manage leads with AI", keywords: ["lead", "qualification", "scoring", "crm"] },
         { name: "Website Chatbot", description: "24/7 AI chatbot for website visitors", keywords: ["chatbot", "conversational", "website"] },
@@ -185,7 +185,7 @@ async function main() {
         { key: "Founded", value: "2023" },
       ],
       salesObjectives: [
-        { objective: "Book 30 qualified demos this quarter", targetMetric: "30 demos", horizon: "Q1" },
+        { objective: "Book 30 qualified meetings this quarter", targetMetric: "30 meetings", horizon: "Q1" },
         { objective: "Convert 10% of qualified leads to customers", targetMetric: "10% conversion", horizon: "Q1" },
       ],
       targetMarket: {
@@ -199,14 +199,14 @@ async function main() {
 
   await prisma.researchSource.createMany({
     data: [
-      { tenantId: demoTenant.id, name: "Approved B2B directory", sourceType: "directory", url: "https://example.com/directory", approved: true },
-      { tenantId: demoTenant.id, name: "Industry web search", sourceType: "search", approved: true },
+      { tenantId: defaultTenant.id, name: "Approved B2B directory", sourceType: "directory", url: "https://example.com/directory", approved: true },
+      { tenantId: defaultTenant.id, name: "Industry web search", sourceType: "search", approved: true },
     ],
   });
 
   await prisma.aIBudget.create({
     data: {
-      tenantId: demoTenant.id,
+      tenantId: defaultTenant.id,
       monthlyTokenLimit: 1000000,
       monthlyCostLimit: 50,
       alertThreshold: 0.8,
@@ -246,8 +246,8 @@ async function main() {
   }
 
   console.log("✅ Seed completed");
-  console.log(`   Admin: admin@demo.com / Admin123!`);
-  console.log(`   Tenant: ${demoTenant.name} (${demoTenant.slug})`);
+  console.log(`   Admin: admin@example.com / Admin123!`);
+  console.log(`   Tenant: ${defaultTenant.name} (${defaultTenant.slug})`);
 }
 
 main()

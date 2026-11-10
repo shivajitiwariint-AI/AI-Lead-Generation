@@ -4,7 +4,7 @@ import type { AIModuleKey } from "@/lib/ai-gateway";
  * Deterministic local engine used when no API key is configured for a module.
  * Produces structured, plausible output so every AI feature (qualification,
  * matching, research, email drafting, chat, summaries) works end-to-end in
- * demos and tests without external credentials. Output always states that it
+ * local runs and tests without external credentials. Output always states that it
  * was generated locally via the `generatedBy: "mock"` marker in metadata.
  */
 
@@ -160,8 +160,8 @@ You are receiving this because your details were captured with consent. Reply ST
       if (/(price|cost|pricing|quote)/.test(lower)) {
         return "Thanks for asking! Pricing depends on team size and usage — plans typically start small and scale as you grow. I can have a specialist send you a tailored quote. Could you share your name, company and email?";
       }
-      if (/(demo|trial|try)/.test(lower)) {
-        return "Absolutely — we offer live demos with your own data. What does your team look like (number of sales people), and which industry are you in? I'll line up a session.";
+      if (/(trial|try|get started|sign up)/.test(lower)) {
+        return "Absolutely — you can start a free trial and explore the platform with your own data. What does your team look like (number of sales people), and which industry are you in? I'll point you to the right setup.";
       }
       if (/(meeting|call|calendar|schedule)/.test(lower)) {
         return "I can arrange that. What day and time works best for you this week, and what's the best email to send the invite to?";

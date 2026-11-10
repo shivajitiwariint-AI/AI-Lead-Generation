@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         answer: docs.length
           ? `${docs[0].content} ${docs[1] ? docs[1].content : ""}`.trim()
-          : "I can help with our public services, features, and how the platform helps sales teams. Could you tell me what you're interested in — for example, how lead scoring works, or starting a demo?",
+          : "I can help with our public services, features, and how the platform helps sales teams. Could you tell me what you're interested in — for example, how lead scoring works, or how to get started?",
         sources,
         fallback: true,
       });

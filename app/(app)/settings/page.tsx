@@ -85,7 +85,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="company">Company Name</Label>
-              <Input id="company" defaultValue="Demo Company" />
+              <Input id="company" placeholder="Your company name" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="timezone">Timezone</Label>

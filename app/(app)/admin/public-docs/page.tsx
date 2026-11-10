@@ -126,11 +126,11 @@ function DocsContent() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Title</Label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Pricing and demo" />
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="e.g. Pricing and plans" />
             </div>
             <div className="space-y-2">
               <Label>Keywords (comma-separated)</Label>
-              <Input value={form.keywords} onChange={(e) => setForm({ ...form, keywords: e.target.value })} placeholder="price, pricing, cost, demo, trial" />
+              <Input value={form.keywords} onChange={(e) => setForm({ ...form, keywords: e.target.value })} placeholder="price, pricing, cost, trial, quote" />
             </div>
           </div>
           <div className="space-y-2">

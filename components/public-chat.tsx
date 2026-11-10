@@ -14,7 +14,7 @@ const SUGGESTIONS = [
   "What does the platform do?",
   "How does lead scoring work?",
   "Real Estate help?",
-  "Pricing and demo?",
+  "Pricing and plans?",
 ];
 
 export function PublicChat() {
@@ -70,7 +70,7 @@ export function PublicChat() {
             </span>
             <div className="flex-1">
               <p className="text-sm font-semibold text-white">AI Assistant</p>
-              <p className="text-[11px] text-white/50">Public info only · Ask about services &amp; demos</p>
+              <p className="text-[11px] text-white/50">Public info only · Ask about services &amp; pricing</p>
             </div>
             <button
               onClick={() => setOpen(false)}
@@ -86,7 +86,7 @@ export function PublicChat() {
             {messages.length === 0 && (
               <div className="space-y-3 py-2">
                 <p className="text-sm text-white/70">
-                  Hi! I can explain what we offer, how lead scoring works, and how to start a demo. What would you like to know?
+                  Hi! I can explain what we offer, how lead scoring works, and how to get started. What would you like to know?
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {SUGGESTIONS.map((s) => (
@@ -137,7 +137,7 @@ export function PublicChat() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask about services, features, demo…"
+              placeholder="Ask about services, features, pricing…"
               className="h-9 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 outline-none focus:border-cyan-400/40"
               title="Type your question"
             />

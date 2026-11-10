@@ -99,7 +99,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         const ai = await generateText({
           moduleKey: "chatbot",
           tenantId: ctx.tenantId!,
-          prompt: `Retrieved context:\n${rag.context}\n\nConversation so far:\n${history}\n\nLatest user message: ${data.content}\nReply helpfully and concisely as a sales assistant, grounded in the retrieved context. If the user wants a meeting/call/demo, propose two time slots and ask them to confirm one.`,
+          prompt: `Retrieved context:\n${rag.context}\n\nConversation so far:\n${history}\n\nLatest user message: ${data.content}\nReply helpfully and concisely as a sales assistant, grounded in the retrieved context. If the user wants a meeting/call, propose two time slots and ask them to confirm one.`,
           systemPrompt:
             "You are a helpful AI sales assistant for a B2B company. Answer only from the retrieved context and conversation. Be concise, friendly and ask one clarifying question when useful. Never invent company facts.",
           maxTokens: 500,
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
         // Meeting scheduling (req 9)
         const lower = data.content.toLowerCase();
-        if (/(meeting|call|demo|schedule|calendar|book)/.test(lower)) {
+        if (/(meeting|call|schedule|calendar|book)/.test(lower)) {
           if (conversation.leadId) {
             const lead = await prisma.lead.findFirst({
               where: { id: conversation.leadId, tenantId: ctx.tenantId! },

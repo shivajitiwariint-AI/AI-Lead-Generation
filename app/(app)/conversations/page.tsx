@@ -41,7 +41,7 @@ export default function ConversationsPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/v1/conversations", {
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) {
         const data = await res.json();
@@ -59,7 +59,7 @@ export default function ConversationsPage() {
   const fetchMessages = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/v1/conversations/${id}/messages`, {
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) {
         const data = await res.json();
@@ -111,7 +111,7 @@ export default function ConversationsPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Tenant-Id": "demo-tenant-id",
+            "X-Tenant-Id": "default-tenant-id",
           },
           body: JSON.stringify({ role: "user", content: newMessage }),
         }
@@ -140,7 +140,7 @@ export default function ConversationsPage() {
     try {
       const res = await fetch(`/api/v1/conversations/${selectedConversation.id}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "Content-Type": "application/json", "X-Tenant-Id": "default-tenant-id" },
         body: JSON.stringify({ action: "handoff" }),
       });
       const d = await res.json().catch(() => null);

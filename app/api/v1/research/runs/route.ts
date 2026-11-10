@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Execute inline (synchronous) so the demo shows immediate results.
+    // Execute inline (synchronous) so runs show immediate results.
     const result = await executeResearchRun({
       tenantId: ctx.tenantId,
       runId: run.id,

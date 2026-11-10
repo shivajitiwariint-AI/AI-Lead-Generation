@@ -37,7 +37,7 @@ export default function CampaignsPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/v1/campaigns", {
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) {
         const data = await res.json();
@@ -60,7 +60,7 @@ export default function CampaignsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify(newCampaign),
       });
@@ -80,7 +80,7 @@ export default function CampaignsPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "demo-tenant-id",
+          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({ status: current === "active" ? "paused" : "active" }),
       });
@@ -95,7 +95,7 @@ export default function CampaignsPage() {
     try {
       const res = await fetch(`/api/v1/campaigns/${id}`, {
         method: "DELETE",
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) await fetchCampaigns();
     } catch {

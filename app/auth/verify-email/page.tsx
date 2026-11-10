@@ -68,13 +68,8 @@ function VerifyEmailForm() {
             </div>
             <h2 className="mt-6 text-2xl font-semibold tracking-tight text-white">Verify your email</h2>
             <p className="mt-2 text-sm text-white/60">
-              Enter the verification code to activate your account
+              Enter the verification code we emailed you to activate your account
             </p>
-            {codeParam && (
-              <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                Demo mode: your code is <span className="font-mono font-bold">{codeParam}</span>
-              </div>
-            )}
           </div>
 
           {success ? (

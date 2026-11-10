@@ -178,7 +178,7 @@ export default async function LandingPage() {
                 href="/auth/signin"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-8 py-3.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/10"
               >
-                Open demo
+                Sign in
               </Link>
             </div>
             <p className="mt-6 text-sm text-white/40">
@@ -311,13 +311,13 @@ export default async function LandingPage() {
             <div className="mt-16 overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 p-8 text-center shadow-2xl shadow-indigo-500/30 animate-pulse-glow">
               <h3 className="text-2xl font-bold">Ready to see it in action?</h3>
               <p className="mt-2 text-sm text-white/80">
-                Open the demo workspace and explore the full AI automation product.
+                Sign in to your workspace and explore the full AI automation product.
               </p>
               <Link
                 href="/auth/signin"
                 className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-indigo-600 transition-transform hover:scale-105"
               >
-                Launch demo <ArrowRight className="h-4 w-4" />
+                Open workspace <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

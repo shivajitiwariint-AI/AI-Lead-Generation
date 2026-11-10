@@ -215,9 +215,6 @@ function SignInForm() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-white/40">
-          Demo: admin@demo.com / Admin123!
-        </p>
       </div>
     </div>
   );

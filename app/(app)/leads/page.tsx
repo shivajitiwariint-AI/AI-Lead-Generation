@@ -236,7 +236,7 @@ function LeadsContent() {
     setLoading(true);
     try {
       const res = await fetch(`/api/v1/leads?${params.toString()}`, {
-        headers: { "X-Tenant-Id": "demo-tenant-id" },
+        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) {
         const data = await res.json();
