@@ -94,7 +94,7 @@ export default function AdminCompaniesPage() {
                     )}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {c.industry || "—"} · {c.slug} · joined {new Date(c.createdAt).toLocaleDateString()}
+                    {c.industry ? c.industry.replace(/_/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()) : "—"} · {c.slug} · joined {new Date(c.createdAt).toLocaleDateString()}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     Mode: {c.operatingMode.replace(/_/g, " ")} {c.automationPaused ? "· PAUSED" : ""}

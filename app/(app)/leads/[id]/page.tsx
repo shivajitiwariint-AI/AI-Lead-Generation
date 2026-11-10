@@ -117,7 +117,7 @@ export default async function LeadDetailPage({
               <div>
                 <CardTitle>{lead.name}</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  {lead.company || "No company"} • {lead.industry || "No industry"}
+                  {lead.company || "No company"} • {lead.industry ? lead.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "No industry"}
                 </p>
               </div>
               <Badge variant="outline" className={statusClass}>
@@ -171,7 +171,7 @@ export default async function LeadDetailPage({
                     <div>
                       <p className="text-sm font-medium">Industry</p>
                       <p className="text-sm text-muted-foreground">
-                        {lead.industry || "-"}
+                        {lead.industry ? lead.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "-"}
                       </p>
                     </div>
                   </div>

@@ -238,7 +238,7 @@ async function ClientDashboard({ tenantId }: { tenantId: string }) {
                         {lead?.name ?? "Follow-up"}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {lead?.industry ?? "General"} · due {new Date(f.dueAt).toLocaleString()}
+                        {lead?.industry ? lead.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "General"} · due {new Date(f.dueAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -574,7 +574,7 @@ async function SuperAdminDashboard() {
                             {c.name}
                           </Link>
                           <p className="text-xs text-muted-foreground">
-                            {profile?.industry ?? c.slug}
+                            {profile?.industry ? profile.industry.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : c.slug}
                           </p>
                         </td>
                         <td className="py-3">

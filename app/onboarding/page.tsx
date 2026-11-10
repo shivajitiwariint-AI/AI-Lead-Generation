@@ -42,8 +42,6 @@ type Offer = { name: string; description?: string; keywords?: string[] };
 
 const formatIndustry = (value?: string | null) => {
   if (!value) return "—";
-  const match = INDUSTRIES.find((i) => i.value === value);
-  if (match) return match.label;
   return value
     .replace(/-|_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase())

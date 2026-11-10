@@ -304,7 +304,7 @@ export default function ResearchPage() {
             {showRE && <RealEstateCard />}
             {showSW && <SoftwareOutreachCard />}
             {!showRE && !showSW && (
-              <p className="text-sm text-muted-foreground">No industry-specific outreach pack for “{profile?.industry || "unknown"}”.</p>
+              <p className="text-sm text-muted-foreground">No industry-specific outreach pack for “{profile?.industry ? profile.industry.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "unknown"}”.</p>
             )}
           </>
         );

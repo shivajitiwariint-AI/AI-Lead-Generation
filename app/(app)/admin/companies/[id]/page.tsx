@@ -186,11 +186,7 @@ export default function AdminCompanyDetailPage() {
   const { company, profile, members, progress, recentActivity } = data;
   const formatIndustry = (value?: string | null) => {
     if (!value) return "—";
-    const match = ["real estate", "software and it", "readymade products and retail", "education", "healthcare", "travel and hospitality", "finance and insurance", "professional services", "manufacturing and b2b", "other / custom"].find(
-      (v) => v === value.toLowerCase().replace(/_/g, " ")
-    );
-    const label = match ?? value.replace(/_/g, " ");
-    return label.replace(/\b\w/g, (c: string) => c.toUpperCase());
+    return value.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
   };
 
   return (
@@ -355,7 +351,7 @@ export default function AdminCompanyDetailPage() {
             {showSW && <SoftwareOutreachCard tenantId={id} />}
             {!showRE && !showSW && (
               <p className="text-sm text-muted-foreground">
-                No industry-specific outreach pack for “{profile?.industry || "unknown"}”. Update Industry in onboarding to enable Real Estate or Software AI.
+                No industry-specific outreach pack for “{profile?.industry ? profile.industry.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "unknown"}”. Update Industry in onboarding to enable Real Estate or Software AI.
               </p>
             )}
           </>
