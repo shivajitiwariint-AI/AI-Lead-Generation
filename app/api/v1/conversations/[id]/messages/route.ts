@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { generateText } from "@/lib/ai-gateway";
 import { recordAudit, recordLeadActivity } from "@/lib/activity";
 import { retrieveTenantRag } from "@/lib/rag";
+import { stripDemoWording } from "@/lib/public-guardrails";
 import { checkSharedRateLimit } from "@/lib/rate-limit";
 
 const messageSchema = z.object({
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
             tenantId: ctx.tenantId!,
             conversationId: params.id,
             role: "assistant",
-            content: ai.text,
+            content: stripDemoWording(ai.text),
             metadata: {
               mock: ai.mock,
               requestId: ai.requestId,
