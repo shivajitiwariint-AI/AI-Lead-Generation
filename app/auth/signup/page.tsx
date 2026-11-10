@@ -21,7 +21,7 @@ const INDUSTRIES = [
   { value: "travelhospitality", label: "Travel & Hospitality" },
   { value: "financeinsurance", label: "Finance & Insurance" },
   { value: "professionalservices", label: "Professional Services (marketing, consulting, legal)" },
-  { value: "manufacturing_b2b", label: "Manufacturing & B2B" },
+  { value: "manufacturingb2b", label: "Manufacturing & B2B" },
   { value: "custom", label: "Other / Custom" },
 ];
 
