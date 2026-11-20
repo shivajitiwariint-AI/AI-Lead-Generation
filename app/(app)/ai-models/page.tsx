@@ -95,7 +95,6 @@ export default function AIModelsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify(newModel),
       });

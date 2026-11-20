@@ -333,8 +333,14 @@ export async function sendEmail(params: {
     where: { id: messageId, tenantId },
   });
   if (!message) throw new Error("Message not found");
-  if (message.status === "sent") return { sent: true, simulated: !!message.meta, sentAt: message.sentAt ?? undefined };
-  if (message.status !== "approved") {
+  if (message.status === "sent") {
+    return {
+      sent: true,
+      simulated: Boolean((message.meta as any)?.simulated),
+      sentAt: message.sentAt ?? undefined,
+    };
+  }
+  if (message.status !== "approved" && message.status !== "simulated") {
     throw new Error(`Email must be approved before sending (current: ${message.status})`);
   }
   if (!message.toAddress) throw new Error("Missing recipient address");
@@ -458,33 +464,39 @@ export async function sendEmail(params: {
     }
   }
 
-  // 4) Simulated send (local runs)
+  // 4) Simulated send (no provider configured)
   if (!sent) {
     simulated = true;
     providerUsed = "local";
   }
 
   const sentAt = new Date();
+  // Only a real delivery is "sent". A simulated run is kept separate so it does
+  // not pollute hard-bounce metrics, and a genuine failure becomes "bounced".
+  const finalStatus = sent ? "sent" : simulated ? "simulated" : "bounced";
   await prisma.message.update({
     where: { id: messageId },
     data: {
-      status: sent ? "sent" : "bounced",
-      sentAt,
+      status: finalStatus,
+      sentAt: sent ? sentAt : null,
       fromAddress,
       meta: { ...(message.meta as object ?? {}), simulated, provider: providerUsed },
     },
   });
 
-  if (message.leadId) {
+  if (message.leadId && sent) {
     await prisma.lead.update({
       where: { id: message.leadId },
       data: { lastContactedAt: sentAt, lastAiActionAt: sentAt },
     });
+  }
+
+  if (message.leadId) {
     await recordLeadActivity({
       tenantId,
       leadId: message.leadId,
       actorId: params.actorId ?? null,
-      activityType: sent ? "email_sent" : "email_bounced",
+      activityType: sent ? "email_sent" : simulated ? "email_simulated" : "email_bounced",
       payload: { messageId, to: message.toAddress, subject: message.subject, simulated },
     });
   }
@@ -493,7 +505,7 @@ export async function sendEmail(params: {
     tenantId,
     actorId: params.actorId ?? null,
     actorType: params.actorType ?? "ai",
-    action: sent ? "email.sent" : "email.bounced",
+    action: sent ? "email.sent" : simulated ? "email.simulated" : "email.bounced",
     category: "email",
     targetType: "message",
     targetId: messageId,
@@ -505,6 +517,10 @@ export async function sendEmail(params: {
     },
   });
 
-  // @ts-ignore
-return { sent, simulated, reason: sent ? undefined : (await prisma.message.findFirst({ where: { id: messageId } }))?.meta?.bounceReason as string | undefined, sentAt };
+  const bounceReason = sent
+    ? undefined
+    : simulated
+      ? "No email provider configured — nothing was delivered"
+      : ((await prisma.message.findFirst({ where: { id: messageId } }))?.meta as any)?.bounceReason;
+  return { sent, simulated, reason: bounceReason, sentAt };
 }

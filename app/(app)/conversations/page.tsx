@@ -40,9 +40,7 @@ export default function ConversationsPage() {
   const fetchConversations = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/conversations", {
-        headers: { "X-Tenant-Id": "default-tenant-id" },
-      });
+      const res = await fetch("/api/v1/conversations");
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
@@ -58,9 +56,7 @@ export default function ConversationsPage() {
 
   const fetchMessages = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/v1/conversations/${id}/messages`, {
-        headers: { "X-Tenant-Id": "default-tenant-id" },
-      });
+      const res = await fetch(`/api/v1/conversations/${id}/messages`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data);
@@ -111,7 +107,6 @@ export default function ConversationsPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "X-Tenant-Id": "default-tenant-id",
           },
           body: JSON.stringify({ role: "user", content: newMessage }),
         }
@@ -140,7 +135,7 @@ export default function ConversationsPage() {
     try {
       const res = await fetch(`/api/v1/conversations/${selectedConversation.id}/messages`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Id": "default-tenant-id" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "handoff" }),
       });
       const d = await res.json().catch(() => null);
@@ -175,9 +170,9 @@ export default function ConversationsPage() {
         <span>Conversations</span>
       </div>
 
-      <div className="flex h-[600px]">
+      <div className="flex h-[calc(100vh-13rem)] min-h-[520px] flex-col md:flex-row">
         {/* Conversation list */}
-        <div className="w-1/3 border-r border-border flex flex-col">
+        <div className="flex max-h-[240px] w-full flex-col border-b border-border md:max-h-none md:w-1/3 md:border-b-0 md:border-r">
           <div className="p-4 border-b border-border flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Conversations</h2>
             <div className="flex gap-1">
@@ -261,9 +256,6 @@ export default function ConversationsPage() {
                       <Hand className="h-3 w-3 mr-1" /> Handoff
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" title="Open chat actions">
-                    <MessageCircle className="h-3 w-3" />
-                  </Button>
                 </div>
               </div>
 

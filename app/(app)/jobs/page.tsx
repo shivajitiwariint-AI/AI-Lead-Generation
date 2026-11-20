@@ -25,9 +25,7 @@ export default function JobsPage() {
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/jobs?limit=100", {
-        headers: { "X-Tenant-Id": "default-tenant-id" },
-      });
+      const res = await fetch("/api/v1/jobs?limit=100");
       if (res.ok) {
         const data = await res.json();
         setJobs(data);
@@ -47,7 +45,6 @@ export default function JobsPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({ status: "pending", error: null }),
       });

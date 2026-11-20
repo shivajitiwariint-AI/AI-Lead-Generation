@@ -21,6 +21,15 @@ export async function GET(req: NextRequest) {
     where: { tenantId: ctx.tenantId },
     orderBy: { createdAt: "desc" },
     take: limit,
+    select: {
+      id: true,
+      trigger: true,
+      mode: true,
+      status: true,
+      summary: true,
+      startedAt: true,
+      finishedAt: true,
+    },
   });
   return NextResponse.json({ data: runs });
 }

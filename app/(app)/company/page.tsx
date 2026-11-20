@@ -6,35 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Save, Building2 } from "lucide-react";
+import { Plus, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { INDUSTRY_OPTIONS, formatIndustry } from "@/lib/industry";
 
 type Offer = { name: string; description?: string; keywords?: string[] };
 type Objective = { objective: string; targetMetric?: string; horizon?: string };
-const INDUSTRY_LABELS: Record<string, string> = {
-  softwareit: "Software It",
-  software_it: "Software It",
-  realestate: "Real Estate",
-  real_estate: "Real Estate",
-  retailwholesale: "Retail & Wholesale",
-  retail_wholesale: "Retail & Wholesale",
-  education: "Education",
-  healthcare: "Healthcare",
-  travelhospitality: "Travel & Hospitality",
-  travel_hospitality: "Travel & Hospitality",
-  financeinsurance: "Finance & Insurance",
-  finance_insurance: "Finance & Insurance",
-  professionalservices: "Professional Services",
-  professional_services: "Professional Services",
-  manufacturingb2b: "Manufacturing & B2B",
-  manufacturing_b2b: "Manufacturing & B2B",
-  custom: "Other / Custom",
-};
-
-function industryLabel(value: string | null | undefined): string {
-  if (!value) return "";
-  return INDUSTRY_LABELS[value] ?? value;
-}
 
 type Property = { key: string; value: string };
 
@@ -60,7 +38,6 @@ export default function CompanyPage() {
         const res = await fetch("/api/v1/company-profile");
         if (res.ok) {
           const data = await res.json();
-          if (data && data.industry) data.industry = industryLabel(data.industry);
           setProfile(data ?? {});
         }
       } finally {
@@ -74,10 +51,23 @@ export default function CompanyPage() {
   const save = async () => {
     setSaving(true);
     try {
+      // Send only the fields the profile endpoint understands. The GET response
+      // also contains id/timestamps, and saving the raw industry key avoids
+      // writing a display label back to the database.
+      const payload = {
+        industry: profile.industry ?? null,
+        website: profile.website ?? null,
+        description: profile.description ?? null,
+        products: profile.products ?? null,
+        services: profile.services ?? null,
+        properties: profile.properties ?? null,
+        salesObjectives: profile.salesObjectives ?? null,
+        targetMarket: profile.targetMarket ?? null,
+      };
       const res = await fetch("/api/v1/company-profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(profile),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error("Save failed");
       toast.success("Company profile saved");
@@ -124,12 +114,30 @@ export default function CompanyPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="industry">Industry</Label>
-              <Input
-                id="industry"
+              <Select
                 value={profile.industry ?? ""}
-                onChange={(e: any) => update({ industry: e.target.value })}
-                placeholder="e.g. Real Estate, SaaS, Manufacturing"
-              />
+                onValueChange={(v: string) => update({ industry: v })}
+              >
+                <SelectTrigger id="industry" title="Choose your industry">
+                  <SelectValue placeholder="Select an industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDUSTRY_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                  {profile.industry &&
+                    !INDUSTRY_OPTIONS.some((o) => o.value === profile.industry) && (
+                      <SelectItem value={profile.industry}>
+                        {formatIndustry(profile.industry)}
+                      </SelectItem>
+                    )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Used by the AI to qualify leads and pick the right outreach playbook.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="website">Website</Label>

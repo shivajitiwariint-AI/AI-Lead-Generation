@@ -29,39 +29,65 @@ import {
   Activity as ActivityIcon,
 } from "lucide-react";
 
-const navItems = [
-  { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Leads", href: "/leads", icon: LayoutGrid },
-  { title: "Pipeline", href: "/pipeline", icon: ChartPie },
-  { title: "Conversations", href: "/conversations", icon: HelpCircle },
-  { title: "Meetings", href: "/meetings", icon: CalendarCheck },
-  { title: "Chatbots", href: "/chatbots", icon: LayoutGrid },
-  { title: "Knowledge Base", href: "/knowledge-base", icon: FileText },
-  { title: "Follow-ups", href: "/follow-ups", icon: Clock },
-  { title: "Integrations", href: "/integrations", icon: Shield },
-  { title: "Team", href: "/team", icon: Users },
-  { title: "Reports", href: "/reports", icon: BarChart3 },
-  { title: "Scoring Profiles", href: "/scoring-profiles", icon: Target },
-  { title: "Settings", href: "/settings", icon: Settings },
+type NavItem = { title: string; href: string; icon: React.ElementType };
 
-  // AI-first autonomous sales system (upgraded requirements)
-  { title: "Company", href: "/company", icon: Building2 },
-  { title: "Research", href: "/research", icon: Search },
-  { title: "Emails", href: "/emails", icon: Mail },
-  { title: "Activity", href: "/activity", icon: ActivityIcon },
+const navGroups: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Sales",
+    items: [
+      { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Leads", href: "/leads", icon: LayoutGrid },
+      { title: "Campaigns", href: "/campaigns", icon: Target },
+      { title: "Pipeline", href: "/pipeline", icon: ChartPie },
+      { title: "Conversations", href: "/conversations", icon: HelpCircle },
+      { title: "Meetings", href: "/meetings", icon: CalendarCheck },
+      { title: "Follow-ups", href: "/follow-ups", icon: Clock },
+    ],
+  },
+  {
+    title: "AI Outreach",
+    items: [
+      { title: "Research", href: "/research", icon: Search },
+      { title: "Emails", href: "/emails", icon: Mail },
+      { title: "Activity", href: "/activity", icon: ActivityIcon },
+      { title: "Chatbots", href: "/chatbots", icon: LayoutGrid },
+      { title: "Knowledge Base", href: "/knowledge-base", icon: FileText },
+      { title: "Scoring Profiles", href: "/scoring-profiles", icon: Target },
+    ],
+  },
+  {
+    title: "Workspace",
+    items: [
+      { title: "Company", href: "/company", icon: Building2 },
+      { title: "Team", href: "/team", icon: Users },
+      { title: "Reports", href: "/reports", icon: BarChart3 },
+      { title: "Integrations", href: "/integrations", icon: Shield },
+      { title: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
-const superAdminNavItems = [
-  { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Companies", href: "/admin/companies", icon: Building2 },
-  { title: "AI Providers", href: "/ai-providers", icon: Cpu },
-  { title: "AI Models", href: "/ai-models", icon: Cpu },
-  { title: "AI Assignments", href: "/ai-assignments", icon: Target },
-  { title: "AI Usage", href: "/ai-usage", icon: BarChart3 },
-  { title: "Public Docs", href: "/admin/public-docs", icon: FileText },
-  { title: "Roles", href: "/admin/roles", icon: Shield },
-  { title: "Audit Logs", href: "/audit-logs", icon: Shield },
-  { title: "Settings", href: "/settings", icon: Settings },
+const superAdminGroups: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Platform",
+    items: [
+      { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { title: "Companies", href: "/admin/companies", icon: Building2 },
+      { title: "AI Providers", href: "/ai-providers", icon: Cpu },
+      { title: "AI Models", href: "/ai-models", icon: Cpu },
+      { title: "AI Assignments", href: "/ai-assignments", icon: Target },
+      { title: "AI Usage", href: "/ai-usage", icon: BarChart3 },
+    ],
+  },
+  {
+    title: "Governance",
+    items: [
+      { title: "Public Docs", href: "/admin/public-docs", icon: FileText },
+      { title: "Roles", href: "/admin/roles", icon: Shield },
+      { title: "Audit Logs", href: "/audit-logs", icon: Shield },
+      { title: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 export interface SidebarProps {
@@ -91,11 +117,12 @@ export function Sidebar({ className, open = false, onClose, isSuperAdmin = false
     return enabledModules.includes(key) || enabledModules.includes("*");
   };
 
-  const baseNav = isSuperAdmin ? superAdminNavItems : navItems;
-  const visibleNav = baseNav.filter((item) => (isSuperAdmin ? true : moduleAllowed(item.href)));
-
-  // Super admin section (only for non-super-admin? no, super admin already has Companies in base)
-  const adminNav: { title: string; href: string; icon: any }[] = [];
+  const groups = (isSuperAdmin ? superAdminGroups : navGroups)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => (isSuperAdmin ? true : moduleAllowed(item.href))),
+    }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <>
@@ -141,58 +168,37 @@ export function Sidebar({ className, open = false, onClose, isSuperAdmin = false
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-          {visibleNav.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.title}
-                href={item.href}
-                onClick={onClose}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                  active
-                    ? "bg-primary/15 text-primary shadow-[0_0_12px_-2px_rgba(99,102,241,0.4)]"
-                    : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]/10 hover:text-[hsl(var(--foreground))] hover:no-underline"
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {item.title}
-              </Link>
-            );
-          })}
-
-          {adminNav.length > 0 && (
-            <>
-              <div className="my-2 border-t border-[hsl(var(--border))]" />
-              <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-                Super Admin
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Main navigation">
+          {groups.map((group) => (
+            <div key={group.title} className="mb-4 last:mb-0">
+              <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+                {group.title}
               </p>
-              {adminNav.map((item) => {
-                const Icon = item.icon;
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-                return (
-                  <Link
-                    key={item.title}
-                    href={item.href}
-                    onClick={onClose}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                      active
-                        ? "bg-primary/15 text-primary shadow-[0_0_12px_-2px_rgba(99,102,241,0.4)]"
-                        : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]/10 hover:text-[hsl(var(--foreground))] hover:no-underline"
-                    )}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    {item.title}
-                  </Link>
-                );
-              })}
-            </>
-          )}
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  return (
+                    <Link
+                      key={`${group.title}-${item.href}`}
+                      href={item.href}
+                      onClick={onClose}
+                      aria-current={active ? "page" : undefined}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
+                        active
+                          ? "bg-primary/15 text-primary shadow-[0_0_12px_-2px_rgba(99,102,241,0.4)]"
+                          : "text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]/10 hover:text-[hsl(var(--foreground))] hover:no-underline"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {item.title}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="p-4 border-t border-[hsl(var(--border))]">

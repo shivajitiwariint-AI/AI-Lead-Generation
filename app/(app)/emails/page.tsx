@@ -93,6 +93,8 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
   approved: "secondary",
   pending_review: "outline",
   draft: "outline",
+  simulated: "secondary",
+  bounced: "destructive",
   rejected: "destructive",
   failed: "destructive",
 };
@@ -110,19 +112,26 @@ export default function EmailsPage() {
   const [generating, setGenerating] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const load = async () => {
+  const loadEmails = async () => {
     const params = new URLSearchParams();
     if (filter !== "all") params.set("status", filter);
-    const [e, l] = await Promise.all([
-      fetch(`/api/v1/emails?${params}`).then((r) => r.json()),
-      fetch("/api/v1/leads?limit=100").then((r) => r.json()).catch(() => ({ data: [] })),
-    ]);
-    setEmails(Array.isArray(e?.data) ? e.data : []);
-    setLeads(Array.isArray(l?.data) ? l.data : []);
+    const res = await fetch(`/api/v1/emails?${params}`);
+    if (res.ok) {
+      const e = await res.json();
+      setEmails(Array.isArray(e?.data) ? e.data : []);
+    }
   };
 
+  // Leads are only needed for the "Generate with AI" picker — fetch once.
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    fetch("/api/v1/leads?limit=100")
+      .then((r) => r.json())
+      .then((l) => setLeads(Array.isArray(l?.data) ? l.data : []))
+      .catch(() => setLeads([]));
+  }, []);
+
+  useEffect(() => {
+    loadEmails().finally(() => setLoading(false));
   }, [filter]);
 
   const openEmail = (e: Email) => {
@@ -144,7 +153,7 @@ export default function EmailsPage() {
       if (!res.ok) throw new Error(data?.error?.message || "Generate failed");
       toast.success(`Email drafted (${data.status})`);
       setGenLead("");
-      load();
+      loadEmails();
     } catch (e: any) {
       toast.error(e.message || "Generate failed");
     } finally {
@@ -165,7 +174,7 @@ export default function EmailsPage() {
       const updated = await res.json();
       setSelected(updated);
       toast.success("Email updated");
-      load();
+      loadEmails();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -190,13 +199,25 @@ export default function EmailsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message || "Action failed");
-      toast.success(`Email ${action === "send" ? "sent" : action + "d"}`);
+      if (action === "send") {
+        if (data?.sent && data?.simulated) {
+          toast.info("Simulation only — configure SMTP in Settings to deliver real email.");
+        } else if (data?.sent) {
+          toast.success("Email sent");
+        } else if (data?.simulated) {
+          toast.info("Nothing was delivered — no email provider is configured.");
+        } else {
+          toast.error(data?.reason ? `Not delivered: ${data.reason}` : "Email not delivered");
+        }
+      } else {
+        toast.success(`Email ${action === "approve" ? "approved" : "rejected"}`);
+      }
       setSelected(data.message ?? data);
       if (data.message) {
         setEditSubject(data.message.subject ?? editSubject);
         setEditBody(data.message.body ?? editBody);
       }
-      load();
+      loadEmails();
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -265,7 +286,7 @@ export default function EmailsPage() {
       </Card>
 
       <div className="flex flex-wrap gap-2">
-        {["all", "pending_review", "draft", "approved", "sent", "rejected"].map((s) => (
+        {["all", "pending_review", "draft", "approved", "sent", "bounced", "rejected"].map((s) => (
           <Button
             key={s}
             size="sm"
@@ -349,8 +370,19 @@ export default function EmailsPage() {
                       <Send className="mr-1 h-4 w-4" /> Send
                     </Button>
                   )}
+                  {selected.status === "simulated" && (
+                    <>
+                      <Button size="sm" onClick={() => act("send")} disabled={actionLoading}>
+                        <Send className="mr-1 h-4 w-4" /> Retry send
+                      </Button>
+                      <Badge variant="secondary">Not delivered</Badge>
+                    </>
+                  )}
                   {selected.status === "sent" && (
-                    <Badge variant="default">Sent {selected.meta?.simulated ? "(simulated)" : ""}</Badge>
+                    <Badge variant="default">Delivered</Badge>
+                  )}
+                  {selected.status === "bounced" && (
+                    <Badge variant="destructive">Bounced — check the address</Badge>
                   )}
                 </div>
                 {selected.meta?.mock && (

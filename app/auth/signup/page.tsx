@@ -57,9 +57,8 @@ export default function SignUpPage() {
     setError(null);
     setIsLoading(true);
     try {
-      const industryLabel =
-        INDUSTRIES.find((i) => i.value === data.industry)?.label ?? data.industry;
-      const payload = { ...data, industry: industryLabel };
+      const payload = data;
+      // industry is already a schema-normalised key from the Select
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

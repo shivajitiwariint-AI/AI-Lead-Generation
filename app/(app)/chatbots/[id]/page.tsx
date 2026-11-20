@@ -72,7 +72,7 @@ function ConfigureForm() {
     try {
       const res = await fetch(`/api/v1/chatbots/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "X-Tenant-Id": "default-tenant-id" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim(),
           status: enabled ? "active" : "inactive",

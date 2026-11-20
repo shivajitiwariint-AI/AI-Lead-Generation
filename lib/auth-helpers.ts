@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -25,7 +26,13 @@ export interface AuthContext {
   isAuthenticated: boolean;
 }
 
-export async function getAuthContext(): Promise<AuthContext> {
+/**
+ * Resolve the signed-in user, their active workspace and permissions.
+ *
+ * Memoized with React `cache()` so the layout and the page share a single
+ * execution per request instead of hitting the database twice.
+ */
+export const getAuthContext = cache(async (): Promise<AuthContext> => {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -47,10 +54,12 @@ export async function getAuthContext(): Promise<AuthContext> {
 
   const userId = (session.user as any).id as string;
   const userEmail = session.user.email as string;
+  const sessionTenantId = ((session.user as any).tenantId as string | null) ?? null;
 
   // Find the user's tenant memberships
   const tenantUsers = await prisma.tenantUser.findMany({
-    where: { userId },
+    where: { userId, status: "ACTIVE" },
+    orderBy: { createdAt: "asc" },
   });
 
   if (tenantUsers.length === 0) {
@@ -70,20 +79,18 @@ export async function getAuthContext(): Promise<AuthContext> {
     };
   }
 
-  // Fetch tenant, role, and permissions separately
-  const firstMembership = tenantUsers[0];
+  // Honour the workspace the user picked (stored on the JWT) when they still
+  // belong to it, otherwise fall back to their oldest membership.
+  const membership =
+    (sessionTenantId && tenantUsers.find((m) => m.tenantId === sessionTenantId)) ||
+    tenantUsers[0];
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: firstMembership.tenantId },
-  });
-
-  const role = await prisma.role.findUnique({
-    where: { id: firstMembership.roleId },
-  });
-
-  const rolePermissions = await prisma.rolePermission.findMany({
-    where: { roleId: firstMembership.roleId },
-  });
+  // These three lookups are independent — run them in parallel.
+  const [tenant, role, rolePermissions] = await Promise.all([
+    prisma.tenant.findUnique({ where: { id: membership.tenantId } }),
+    prisma.role.findUnique({ where: { id: membership.roleId } }),
+    prisma.rolePermission.findMany({ where: { roleId: membership.roleId } }),
+  ]);
 
   const permissionIds = rolePermissions.map((rp) => rp.permissionId);
   const permissions =
@@ -100,7 +107,7 @@ export async function getAuthContext(): Promise<AuthContext> {
     userId,
     userEmail,
     userStatus: (session.user as any).status as string,
-    tenantId: firstMembership.tenantId,
+    tenantId: membership.tenantId,
     tenantSlug: tenant?.slug ?? null,
     tenantStatus: tenant?.status ?? null,
     enabledModules: (tenant?.enabledModules as string[] | null) ?? null,
@@ -110,7 +117,7 @@ export async function getAuthContext(): Promise<AuthContext> {
     isSuperAdmin: roleType === "SUPER_ADMIN",
     isAuthenticated: true,
   };
-}
+});
 
 export async function getCurrentTenantId(): Promise<string | null> {
   const ctx = await getAuthContext();

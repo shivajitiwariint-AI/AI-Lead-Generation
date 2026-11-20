@@ -244,8 +244,19 @@ function MessageForm() {
       });
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.error?.message || "Send failed");
-      toast.success(d?.simulated ? "Email send simulated (no RESEND_API_KEY)" : "Email sent");
-      setDraft((p) => (p ? { ...p, status: "sent" } : p));
+      if (d?.sent && d?.simulated) {
+        toast.info("Simulation only — add SMTP credentials in Settings to deliver real email.");
+        setDraft((p) => (p ? { ...p, status: "sent" } : p));
+      } else if (d?.sent) {
+        toast.success("Email sent");
+        setDraft((p) => (p ? { ...p, status: "sent" } : p));
+      } else if (d?.simulated) {
+        toast.info("Nothing was delivered — no email provider is configured.");
+        setDraft((p) => (p ? { ...p, status: "simulated" } : p));
+      } else {
+        toast.error(d?.reason ? `Not delivered: ${d.reason}` : "Email not delivered");
+        setDraft((p) => (p ? { ...p, status: "bounced" } : p));
+      }
       load();
     } catch (e: any) {
       toast.error(e.message || "Send failed");
@@ -327,7 +338,15 @@ function MessageForm() {
           {draft && (
             <div className="space-y-3 rounded-lg border border-border p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={draft.status === "sent" ? "default" : draft.status === "rejected" ? "destructive" : "secondary"}>
+                <Badge
+                  variant={
+                    draft.status === "sent"
+                      ? "default"
+                      : draft.status === "bounced" || draft.status === "rejected"
+                        ? "destructive"
+                        : "secondary"
+                  }
+                >
                   {draft.status}
                 </Badge>
                 {draft.approvalRequired && <Badge variant="outline">Needs approval</Badge>}
@@ -378,14 +397,31 @@ function MessageForm() {
                     </Button>
                   </>
                 )}
-                {draft.status === "approved" && (
-                  <Button size="sm" onClick={sendNow} disabled={busy} title="Send this approved email now">
-                    <Send className="mr-1 h-4 w-4" /> Send now
+                {(draft.status === "approved" || draft.status === "simulated") && (
+                  <Button size="sm" onClick={sendNow} disabled={busy} title="Send this email now">
+                    <Send className="mr-1 h-4 w-4" /> {draft.status === "simulated" ? "Retry send" : "Send now"}
                   </Button>
                 )}
-                {draft.status !== "approved" && draft.status !== "sent" && (
-                  <p className="w-full text-xs text-muted-foreground">Client approval required: Approve first, then Send becomes enabled.</p>
+                {draft.status === "simulated" && (
+                  <p className="w-full text-xs text-amber-600 dark:text-amber-400">
+                    This draft was approved but not delivered — no email provider is configured. Add SMTP
+                    credentials in Settings, then retry.
+                  </p>
                 )}
+                {draft.status === "bounced" && (
+                  <p className="w-full text-xs text-destructive">
+                    Delivery failed — the recipient address is suppressed. Correct the email on the lead before
+                    trying again.
+                  </p>
+                )}
+                {draft.status !== "approved" &&
+                  draft.status !== "sent" &&
+                  draft.status !== "simulated" &&
+                  draft.status !== "bounced" && (
+                    <p className="w-full text-xs text-muted-foreground">
+                      Client approval required: Approve first, then Send becomes enabled.
+                    </p>
+                  )}
               </div>
             </div>
           )}
@@ -456,9 +492,29 @@ function MessageForm() {
         <CardContent className="space-y-2">
           {history.length === 0 && <p className="text-sm text-muted-foreground">No emails yet.</p>}
           {history.map((m: any) => (
-            <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm">
-              <span className="min-w-0 truncate">{m.subject ?? "(no subject)"}</span>
-              <Badge variant="outline">{m.status}</Badge>
+            <div key={m.id} className="flex items-start justify-between gap-2 rounded-lg border border-border p-3 text-sm">
+              <div className="min-w-0">
+                <p className="truncate">{m.subject ?? "(no subject)"}</p>
+                {m.meta?.bounceReason && (
+                  <p className="mt-0.5 truncate text-xs text-destructive" title={String(m.meta.bounceReason)}>
+                    {String(m.meta.bounceReason).replace(/_/g, " ")}
+                  </p>
+                )}
+                {m.meta?.simulated && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">Not delivered (simulation)</p>
+                )}
+              </div>
+              <Badge
+                variant={
+                  m.status === "bounced" || m.status === "failed"
+                    ? "destructive"
+                    : m.status === "sent"
+                      ? "default"
+                      : "outline"
+                }
+              >
+                {m.status}
+              </Badge>
             </div>
           ))}
         </CardContent>

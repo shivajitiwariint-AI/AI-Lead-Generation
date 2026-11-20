@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Search, Bell, UserCircle, Menu } from "lucide-react";
 import { Link } from "@/components/link";
 import { cn } from "@/lib/utils";
@@ -12,13 +13,18 @@ export interface HeaderProps {
 }
 
 export function Header({ className, userName = "Account", onMenuClick }: HeaderProps) {
+  const router = useRouter();
   const [notifCount, setNotifCount] = React.useState(0);
   const [latest, setLatest] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
+
     const load = async () => {
+      // Don't poll while the tab is in the background — saves requests and DB load.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       try {
         const res = await fetch("/api/v1/agent/run?limit=3");
         if (!res.ok) return;
@@ -35,10 +41,7 @@ export function Header({ className, userName = "Account", onMenuClick }: HeaderP
         if (last?.finishedAt) {
           const minutes = (Date.now() - new Date(last.finishedAt).getTime()) / 60000;
           setNotifCount(minutes < 120 ? 1 : 0);
-          setLatest(
-            last.summary?.slice(0, 120) ??
-              `${last.trigger} run ${last.status}`
-          );
+          setLatest(last.summary?.slice(0, 120) ?? `${last.trigger} run ${last.status}`);
         } else if (last) {
           setNotifCount(1);
           setLatest(`${last.trigger} run ${last.status}`);
@@ -47,13 +50,26 @@ export function Header({ className, userName = "Account", onMenuClick }: HeaderP
         /* ignore */
       }
     };
+
     load();
-    const id = setInterval(load, 15000);
+    const id = setInterval(load, 30000);
+    // Refresh as soon as the user comes back to the tab.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  const submitSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    router.push(q ? `/leads?search=${encodeURIComponent(q)}` : "/leads");
+  };
 
   return (
     <header
@@ -72,17 +88,20 @@ export function Header({ className, userName = "Account", onMenuClick }: HeaderP
           <Menu className="h-5 w-5" />
           <span className="sr-only">Open main menu</span>
         </button>
-        <div className="hidden md:flex items-center gap-1 md:gap-2">
+        <form onSubmit={submitSearch} className="hidden md:block" role="search">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
               className="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-3 text-sm outline-none appearance-none [&::-webkit-search-cancel-button]:appearance-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:w-80"
-              placeholder="Search leads, campaigns, contacts..."
-              title="Search leads, campaigns, contacts..."
+              placeholder="Search leads by name, email, company…"
+              title="Search leads by name, email or company"
+              aria-label="Search leads"
             />
           </div>
-        </div>
+        </form>
       </div>
 
       <div className="relative flex items-center gap-3">

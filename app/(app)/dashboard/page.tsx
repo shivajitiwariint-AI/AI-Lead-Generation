@@ -143,13 +143,50 @@ async function ClientDashboard({ tenantId }: { tenantId: string }) {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard title="Total Leads" value={String(totalLeads)} change={newLabel} trend="up" />
         <StatCard title="New This Week" value={String(newThisWeek)} change="leads created this week" trend="up" />
         <StatCard title="Qualified" value={String(qualifiedCount)} change="leads qualified by AI" trend="up" />
         <StatCard title="Open Opportunities" value={String(openOpportunities)} change="in active pipeline" trend="up" />
-        <StatCard title="Bounced Emails" value={String(bouncedEmails)} change={bouncedEmails > 0 ? "hard bounces" : "neutral"} trend="down" />
+        <StatCard
+          title="Bounced Emails"
+          value={String(bouncedEmails)}
+          change={bouncedEmails > 0 ? "hard bounces" : "none"}
+          trend={bouncedEmails > 0 ? "down" : "neutral"}
+        />
       </div>
+
+      {totalLeads === 0 && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle>Get started</CardTitle>
+            <CardDescription>Three quick ways to fill your pipeline</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            <Link
+              href="/research"
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-muted/50"
+            >
+              <p className="font-medium">Run AI research</p>
+              <p className="text-xs text-muted-foreground">Find and qualify new leads automatically.</p>
+            </Link>
+            <Link
+              href="/leads/import"
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-muted/50"
+            >
+              <p className="font-medium">Import a CSV</p>
+              <p className="text-xs text-muted-foreground">Bring your existing lead list in one upload.</p>
+            </Link>
+            <Link
+              href="/company"
+              className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-muted/50"
+            >
+              <p className="font-medium">Complete your profile</p>
+              <p className="text-xs text-muted-foreground">Tell the AI what you sell and who to target.</p>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="col-span-2 lg:col-span-2">
@@ -684,7 +721,7 @@ function StatCard({
   title: string;
   value: string;
   change: string;
-  trend: "up" | "down";
+  trend: "up" | "down" | "neutral";
 }) {
   return (
     <Card>
@@ -695,10 +732,10 @@ function StatCard({
         <div className="text-2xl font-bold">{value}</div>
         <p
           className={`mt-1 flex items-center gap-1 text-xs font-medium ${
-            trend === "up" ? "text-emerald" : "text-red"
+            trend === "up" ? "text-emerald" : trend === "down" ? "text-red" : "text-muted-foreground"
           }`}
         >
-          <span aria-hidden>{trend === "up" ? "▲" : "▼"}</span>
+          {trend !== "neutral" && <span aria-hidden>{trend === "up" ? "▲" : "▼"}</span>}
           {change}
         </p>
       </CardContent>

@@ -89,13 +89,29 @@ export default function ActivityPage() {
     loadStatus();
     loadRuns();
     loadActivity();
-    const id = setInterval(() => {
-      if (live) {
+
+    // Poll only while the tab is visible, and poll activity faster than runs.
+    const activityTimer = setInterval(() => {
+      if (!live || document.visibilityState !== "visible") return;
+      loadActivity(lastSince.current ?? undefined);
+    }, 5000);
+    const runsTimer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      loadRuns();
+    }, 15000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
         loadActivity(lastSince.current ?? undefined);
         loadRuns();
       }
-    }, 4000);
-    return () => clearInterval(id);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      clearInterval(activityTimer);
+      clearInterval(runsTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [live, actorFilter, categoryFilter]);
 
   const togglePause = async (next: boolean) => {

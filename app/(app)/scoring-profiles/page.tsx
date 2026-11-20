@@ -43,9 +43,7 @@ export default function ScoringProfilesPage() {
   const fetchProfiles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/scoring-profiles", {
-        headers: { "X-Tenant-Id": "default-tenant-id" },
-      });
+      const res = await fetch("/api/v1/scoring-profiles");
       if (res.ok) {
         const data = await res.json();
         setProfiles(data);
@@ -67,7 +65,6 @@ export default function ScoringProfilesPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify(newProfile),
       });
@@ -100,7 +97,6 @@ export default function ScoringProfilesPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify(profile),
       });
@@ -118,7 +114,6 @@ export default function ScoringProfilesPage() {
     try {
       const res = await fetch(`/api/v1/scoring-profiles/${id}`, {
         method: "DELETE",
-        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) await fetchProfiles();
     } catch {

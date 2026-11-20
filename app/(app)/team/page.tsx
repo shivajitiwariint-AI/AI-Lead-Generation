@@ -14,14 +14,24 @@ export default async function TeamPage() {
   const tenant = ctx.tenantId
     ? await prisma.tenant.findUnique({ where: { id: ctx.tenantId } })
     : null;
-  const isWorkspaceView = !!tenant && tenant.slug !== "platform";
+  const canSeeAllCompanies = ctx.isSuperAdmin;
+
+  // Non-super-admins only ever see their own workspace. Super admins keep the
+  // cross-company view used for platform support.
+  const tenantWhere = canSeeAllCompanies
+    ? { slug: { not: "platform" } }
+    : { id: ctx.tenantId ?? "__none__" };
+  const membershipWhere = canSeeAllCompanies ? {} : { tenantId: ctx.tenantId ?? "__none__" };
 
   const tenants = await prisma.tenant.findMany({
-    where: { slug: { not: "platform" } },
+    where: tenantWhere,
     orderBy: { createdAt: "asc" },
   });
 
-  const memberships = await prisma.tenantUser.findMany({ orderBy: { createdAt: "asc" } });
+  const memberships = await prisma.tenantUser.findMany({
+    where: membershipWhere,
+    orderBy: { createdAt: "asc" },
+  });
   const userIds = Array.from(new Set(memberships.map((m) => m.userId)));
   const roleIds = Array.from(new Set(memberships.map((m) => m.roleId)));
 
@@ -33,8 +43,7 @@ export default async function TeamPage() {
   const userById = new Map(users.map((u) => [u.id, u]));
   const roleById = new Map(roles.map((r) => [r.id, r]));
 
-  // Show only invited members: exclude the company owner(s) (creators), keep invited roles
-  const invited = memberships.filter((m) => roleById.get(m.roleId)?.type !== "COMPANY_OWNER");
+  const invited = memberships;
 
   const emailOf = (m: (typeof invited)[number]) =>
     (userById.get(m.userId)?.email ?? m.userId).toLowerCase();
@@ -56,24 +65,34 @@ export default async function TeamPage() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Team</h1>
-          <p className="text-muted-foreground">Invited members across the platform. Owners are hidden.</p>
+          <p className="text-muted-foreground">
+            {canSeeAllCompanies
+              ? "Members across every company on the platform."
+              : "People who can access this workspace."}
+          </p>
         </div>
-        {isWorkspaceView && <InviteMember workspaceName={tenant?.name ?? "this workspace"} />}
+        {!canSeeAllCompanies && ctx.tenantId && (
+          <InviteMember workspaceName={tenant?.name ?? "this workspace"} />
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Invited members" value={totalUnique} icon={<Users className="h-4 w-4" />} />
+        <StatCard label="Members" value={totalUnique} icon={<Users className="h-4 w-4" />} />
         <StatCard label="Active" value={active} icon={<ShieldCheck className="h-4 w-4" />} />
-        <StatCard label="Companies" value={companiesWithInvited} icon={<Building2 className="h-4 w-4" />} />
+        <StatCard
+          label={canSeeAllCompanies ? "Companies" : "Workspace"}
+          value={companiesWithInvited}
+          icon={<Building2 className="h-4 w-4" />}
+        />
       </div>
 
       {visibleTenants.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <Users className="h-8 w-8 text-muted-foreground" />
-            <p className="font-medium">No invited members yet</p>
+            <p className="font-medium">No team members yet</p>
             <p className="max-w-md text-sm text-muted-foreground">
-              Team members appear here only when they are invited. Invite your teammates with the button above.
+              Invite a teammate to give them access to this workspace.
             </p>
           </CardContent>
         </Card>

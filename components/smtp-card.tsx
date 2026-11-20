@@ -9,10 +9,12 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, Mail, Save, PlugZap } from "lucide-react";
 import { toast } from "sonner";
 
-export function SmtpCard({ tenantId }: { tenantId: string }) {
+export function SmtpCard({ tenantId }: { tenantId?: string }) {
+  const basePath = tenantId ? `/api/v1/admin/companies/${tenantId}/smtp` : "/api/v1/smtp";
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [denied, setDenied] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [masked, setMasked] = useState("");
   const [form, setForm] = useState({
@@ -29,7 +31,11 @@ export function SmtpCard({ tenantId }: { tenantId: string }) {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/admin/companies/${tenantId}/smtp`);
+      const res = await fetch(basePath);
+      if (res.status === 403) {
+        setDenied(true);
+        return;
+      }
       if (!res.ok) return;
       const d = await res.json();
       if (d.configured) {
@@ -53,7 +59,8 @@ export function SmtpCard({ tenantId }: { tenantId: string }) {
 
   useEffect(() => {
     load();
-  }, [tenantId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basePath]);
 
   const set = (k: keyof typeof form) => (e: any) => {
     const v = e?.target?.checked ?? e?.target?.value ?? e;
@@ -63,7 +70,7 @@ export function SmtpCard({ tenantId }: { tenantId: string }) {
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/admin/companies/${tenantId}/smtp`, {
+      const res = await fetch(basePath, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -94,7 +101,7 @@ export function SmtpCard({ tenantId }: { tenantId: string }) {
   const test = async () => {
     setTesting(true);
     try {
-      const res = await fetch(`/api/v1/admin/companies/${tenantId}/smtp`, {
+      const res = await fetch(basePath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: form.password.trim() || undefined }),
@@ -108,6 +115,21 @@ export function SmtpCard({ tenantId }: { tenantId: string }) {
       setTesting(false);
     }
   };
+
+  if (denied) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-4 w-4" /> Company email (SMTP)
+          </CardTitle>
+          <CardDescription>
+            Email delivery is managed by a workspace admin. Ask an owner or admin to configure the company mailbox.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
 
   if (loading) {
     return (
@@ -127,8 +149,8 @@ export function SmtpCard({ tenantId }: { tenantId: string }) {
         </CardTitle>
         <CardDescription>
           {configured
-            ? `Mailbox ${form.fromEmail} is configured. Emails send from it via SMTP; falls back to Resend, then simulated. Password is stored encrypted (${masked}).`
-            : "No mailbox yet — emails use Resend if configured, otherwise simulated. Add SMTP to send from the company’s own mailbox."}
+            ? `Mailbox ${form.fromEmail} is configured. Emails send from it via SMTP. Password is stored encrypted (${masked}).`
+            : "No company mailbox yet — the platform mailer is used, and if no provider is configured sends are recorded as simulations. Add SMTP to send from your own mailbox."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

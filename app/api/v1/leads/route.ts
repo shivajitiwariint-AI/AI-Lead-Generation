@@ -54,10 +54,12 @@ export async function GET(req: NextRequest) {
   };
 
   if (search) {
+    // MySQL/TiDB string comparisons are case-insensitive with the default
+    // collation, and Prisma's `mode` option is not supported by this connector.
     where.OR = [
-      { name: { contains: search, mode: "insensitive" } },
-      { email: { contains: search, mode: "insensitive" } },
-      { company: { contains: search, mode: "insensitive" } },
+      { name: { contains: search } },
+      { email: { contains: search } },
+      { company: { contains: search } },
     ];
   }
   if (status) where.status = status;

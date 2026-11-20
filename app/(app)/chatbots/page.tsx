@@ -34,9 +34,7 @@ export default function ChatbotsPage() {
   const fetchChatbots = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/chatbots", {
-        headers: { "X-Tenant-Id": "default-tenant-id" },
-      });
+      const res = await fetch("/api/v1/chatbots");
       if (res.ok) {
         const data = await res.json();
         setChatbots(data);
@@ -62,7 +60,6 @@ export default function ChatbotsPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({
           name: newChatbot.name.trim(),
@@ -104,7 +101,6 @@ export default function ChatbotsPage() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          "X-Tenant-Id": "default-tenant-id",
         },
         body: JSON.stringify({ status: !current ? "active" : "inactive" }),
       });
@@ -119,7 +115,6 @@ export default function ChatbotsPage() {
     try {
       const res = await fetch(`/api/v1/chatbots/${id}`, {
         method: "DELETE",
-        headers: { "X-Tenant-Id": "default-tenant-id" },
       });
       if (res.ok) await fetchChatbots();
     } catch {

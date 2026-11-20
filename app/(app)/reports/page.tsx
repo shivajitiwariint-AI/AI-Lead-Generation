@@ -19,9 +19,7 @@ export default function ReportsPage() {
   const fetchReport = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/reports", {
-        headers: { "X-Tenant-Id": "default-tenant-id" },
-      });
+      const res = await fetch("/api/v1/reports");
       if (res.ok) {
         const data = await res.json();
         setReport(data);
@@ -93,7 +91,10 @@ export default function ReportsPage() {
                       className="flex-1 flex flex-col items-center gap-1"
                       style={{ height: `${Math.min((item.count / maxStatusCount) * 100, 100)}%` }}
                     >
-                      <div className={`h-4 w-full rounded-t-lg ${COLORS[i % COLORS.length]}`} />
+                      <div
+                        className="h-4 w-full rounded-t-lg"
+                        style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                      />
                       <span className="text-xs text-muted-foreground">
                         {item.status.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
                       </span>

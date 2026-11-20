@@ -1,39 +1,47 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Users, Plug, Sparkles, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
+import { formatIndustry } from "@/lib/industry";
 
-function ToggleRow({
-  label,
-  defaultChecked = false,
-}: {
-  label: string;
-  defaultChecked?: boolean;
-}) {
-  const [checked, setChecked] = useState(defaultChecked);
-  return (
-    <label className="flex cursor-pointer items-center gap-2 select-none">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => setChecked(e.target.checked)}
-        className="h-4 w-4 shrink-0 rounded border-input bg-background text-primary focus:ring-ring"
-      />
-      <span className="text-sm">{label}</span>
-    </label>
-  );
+interface Profile {
+  industry?: string | null;
+  website?: string | null;
+  description?: string | null;
+  onboardingCompleted?: boolean;
 }
 
 export default function SettingsPage() {
   const [mode, setMode] = useState("AI_WITH_APPROVAL");
   const [paused, setPaused] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [memberCount, setMemberCount] = useState<number | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [p, t] = await Promise.all([
+          fetch("/api/v1/company-profile").then((r) => (r.ok ? r.json() : null)),
+          fetch("/api/v1/team/members").then((r) => (r.ok ? r.json() : null)),
+        ]);
+        setProfile(p ?? null);
+        setMemberCount(Array.isArray(t?.data) ? t.data.length : null);
+      } catch {
+        /* ignore */
+      } finally {
+        setLoadingProfile(false);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -67,80 +75,101 @@ export default function SettingsPage() {
     }
   };
 
-  const saved = (section: string) => toast.success(`${section} settings saved`);
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">Workspace preferences, security and notifications.</p>
+        <p className="text-muted-foreground">Workspace configuration and AI behaviour.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardTitle>General Settings</CardTitle>
-            <CardDescription>Company defaults used across the workspace</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" /> Company profile
+            </CardTitle>
+            <CardDescription>Used by the AI to qualify and match leads</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="company">Company Name</Label>
-              <Input id="company" placeholder="Your company name" />
+          <CardContent className="space-y-3 text-sm">
+            {loadingProfile ? (
+              <div className="space-y-2">
+                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+                <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Industry</span>
+                  <span className="font-medium">{formatIndustry(profile?.industry)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Website</span>
+                  {profile?.website ? (
+                    <a
+                      href={profile.website}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate font-medium text-primary hover:underline"
+                    >
+                      {profile.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">Not set</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Onboarding</span>
+                  {profile?.onboardingCompleted ? (
+                    <Badge variant="secondary">Complete</Badge>
+                  ) : (
+                    <Badge variant="outline">Incomplete</Badge>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" asChild className="mt-1 w-full">
+                  <Link href="/company" className="flex items-center justify-center gap-1">
+                    Edit company profile <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-muted-foreground" /> Team
+            </CardTitle>
+            <CardDescription>People with access to this workspace</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Active members</span>
+              <span className="font-medium">{memberCount ?? "—"}</span>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="timezone">Timezone</Label>
-              <Input id="timezone" defaultValue="UTC" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="currency">Default Currency</Label>
-              <Input id="currency" defaultValue="USD" />
-            </div>
-            <Button variant="outline" onClick={() => saved("General")}>
-              Save Changes
+            <Button variant="outline" size="sm" asChild className="mt-1 w-full">
+              <Link href="/team" className="flex items-center justify-center gap-1">
+                Manage team <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Security</CardTitle>
-            <CardDescription>How your team signs in and stays protected</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Plug className="h-4 w-4 text-muted-foreground" /> Integrations
+            </CardTitle>
+            <CardDescription>Connect email, chat and data sources</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="timeout">Session Timeout (minutes)</Label>
-              <Input id="timeout" type="number" defaultValue="43200" />
-            </div>
-            <div className="space-y-2">
-              <Label>Require MFA</Label>
-              <ToggleRow label="Require multi-factor authentication" />
-            </div>
-            <div className="space-y-2">
-              <Label>Password Policy</Label>
-              <ToggleRow label="Strong password required" defaultChecked />
-            </div>
-            <Button variant="outline" onClick={() => saved("Security")}>
-              Save Security
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notifications</CardTitle>
-            <CardDescription>Choose what lands in your inbox</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Email Notifications</Label>
-              <ToggleRow label="Enable email notifications" defaultChecked />
-            </div>
-            <div className="space-y-2">
-              <Label>Weekly Digest</Label>
-              <ToggleRow label="Send weekly activity digest" />
-            </div>
-            <Button variant="outline" onClick={() => saved("Notification")}>
-              Save Notifications
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              Email delivery uses your company SMTP when configured, otherwise the platform mailer.
+            </p>
+            <Button variant="outline" size="sm" asChild className="mt-1 w-full">
+              <Link href="/integrations" className="flex items-center justify-center gap-1">
+                View integrations <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -148,7 +177,9 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>AI Automation (Requirements 2 &amp; 8)</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-muted-foreground" /> AI Automation
+          </CardTitle>
           <CardDescription>Operating mode and manual takeover</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -175,43 +206,13 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
               <p className="text-sm font-medium">Manual takeover (pause AI)</p>
-              <p className="text-xs text-muted-foreground">
-                {paused ? "AI is paused." : "AI is active."}
-              </p>
+              <p className="text-xs text-muted-foreground">{paused ? "AI is paused." : "AI is active."}</p>
             </div>
             <Switch checked={paused} onCheckedChange={(v) => updateAutomation({ automationPaused: v })} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Per-lead takeover is also available on each lead's detail page.
+            Per-lead takeover is also available on each lead&apos;s detail page.
           </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Data &amp; Privacy</CardTitle>
-          <CardDescription>Retention, auditing and account data</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-6 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="retention">Data Retention (days)</Label>
-              <Input id="retention" type="number" defaultValue="365" />
-            </div>
-            <div className="space-y-2">
-              <Label>Enable Audit Logging</Label>
-              <ToggleRow label="Log all admin actions" defaultChecked />
-            </div>
-          </div>
-          <Separator />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="destructive" onClick={() => toast.info("Export started")}>
-              Export All Data
-            </Button>
-            <Button variant="outline" onClick={() => toast.error("Account deletion requires confirmation")}>
-              Delete Account &amp; Data
-            </Button>
-          </div>
         </CardContent>
       </Card>
     </div>
