@@ -25,6 +25,9 @@ import {
   Zap,
   CheckCircle2,
   AlertTriangle,
+  Lightbulb,
+  Wand2,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -107,6 +110,171 @@ interface ModelOption {
   providerDisplayName: string;
 }
 
+interface ModelHint {
+  provider?: string;
+  model?: string;
+}
+
+interface ModuleAdvice {
+  family: string;
+  reason: string;
+  primary: ModelHint[];
+  fallback: ModelHint[];
+}
+
+/**
+ * Which model family fits each job. Hints are ordered by preference and matched
+ * against provider keys / model keys already present in the AI Models catalog.
+ */
+const MODEL_ADVICE: Partial<Record<string, ModuleAdvice>> = {
+  chatbot: {
+    family: "Groq Llama / GPT-OSS or Gemini Flash",
+    reason: "Needs fast, low-cost replies. Big reasoning models only add delay here.",
+    primary: [
+      { provider: "groq" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "gemini", model: "flash" },
+      { provider: "openai", model: "mini" },
+      { provider: "anthropic", model: "haiku" },
+    ],
+    fallback: [
+      { provider: "ollama" },
+      { provider: "groq" },
+      { provider: "google_gemini", model: "flash" },
+    ],
+  },
+  lead_extraction: {
+    family: "GPT-4o-mini / Gemini Flash",
+    reason: "Reliable structured output keeps extracted fields consistent and cheap.",
+    primary: [
+      { provider: "openai", model: "mini" },
+      { provider: "openai", model: "4o" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "groq", model: "gpt-oss" },
+      { provider: "anthropic", model: "haiku" },
+    ],
+    fallback: [
+      { provider: "groq" },
+      { provider: "ollama" },
+      { provider: "google_gemini", model: "flash" },
+    ],
+  },
+  lead_qualification: {
+    family: "Groq GPT-OSS / Llama 3.3",
+    reason: "Scores many leads in bulk — reasoning helps, but speed and cost matter more.",
+    primary: [
+      { provider: "groq", model: "gpt-oss" },
+      { provider: "groq", model: "llama" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "openai", model: "mini" },
+    ],
+    fallback: [
+      { provider: "ollama" },
+      { provider: "groq" },
+      { provider: "google_gemini", model: "flash" },
+    ],
+  },
+  company_research: {
+    family: "GPT-4o / Claude Sonnet",
+    reason: "Tool use and synthesis across sources matter more than raw speed.",
+    primary: [
+      { provider: "openai", model: "4o" },
+      { provider: "openai", model: "gpt-4.1" },
+      { provider: "anthropic", model: "sonnet" },
+      { provider: "google_gemini", model: "pro" },
+    ],
+    fallback: [
+      { provider: "groq" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "ollama" },
+    ],
+  },
+  complex_analysis: {
+    family: "Claude Opus / Sonnet or OpenAI o-series",
+    reason: "Deep reasoning for strategy and edge cases — use where quality justifies cost.",
+    primary: [
+      { provider: "anthropic", model: "opus" },
+      { provider: "anthropic", model: "sonnet" },
+      { provider: "openai", model: "o3" },
+      { provider: "openai", model: "o4" },
+      { provider: "openai", model: "gpt-4.1" },
+      { provider: "google_gemini", model: "pro" },
+      { provider: "groq", model: "gpt-oss-120b" },
+    ],
+    fallback: [
+      { provider: "groq" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "openai", model: "mini" },
+    ],
+  },
+  email_drafting: {
+    family: "Claude Sonnet / Haiku or GPT-4o-mini",
+    reason: "Tone and instruction-following matter; heavy reasoning models are overkill.",
+    primary: [
+      { provider: "anthropic", model: "sonnet" },
+      { provider: "anthropic", model: "haiku" },
+      { provider: "openai", model: "mini" },
+      { provider: "openai", model: "4o" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "groq" },
+    ],
+    fallback: [
+      { provider: "groq" },
+      { provider: "ollama" },
+      { provider: "google_gemini", model: "flash" },
+    ],
+  },
+  conversation_summary: {
+    family: "GPT-4o-mini / Gemini Flash",
+    reason: "Short, repetitive summaries — the cheapest reliable model is the right one.",
+    primary: [
+      { provider: "openai", model: "mini" },
+      { provider: "google_gemini", model: "flash" },
+      { provider: "anthropic", model: "haiku" },
+      { provider: "groq" },
+    ],
+    fallback: [
+      { provider: "ollama" },
+      { provider: "groq" },
+      { provider: "google_gemini", model: "flash" },
+    ],
+  },
+  embeddings: {
+    family: "OpenAI text-embedding-3 / Ollama nomic-embed-text",
+    reason: "Vector search needs a dedicated embedding model, not a chat model.",
+    primary: [
+      { provider: "openai", model: "embedding" },
+      { provider: "google_gemini", model: "embedding" },
+      { provider: "gemini", model: "embedding" },
+      { provider: "voyage" },
+      { provider: "ollama", model: "embed" },
+    ],
+    fallback: [
+      { provider: "ollama", model: "embed" },
+      { provider: "openai", model: "embedding" },
+      { provider: "google_gemini", model: "embedding" },
+    ],
+  },
+};
+
+interface ModuleRecommendation {
+  advice: ModuleAdvice;
+  primary: ModelOption | null;
+  fallback: ModelOption | null;
+}
+
+function rankByHints(model: ModelOption, hints: ModelHint[]): number {
+  const provider = (model.providerKey || "").toLowerCase();
+  const modelKey = (model.modelKey || "").toLowerCase();
+  for (let i = 0; i < hints.length; i++) {
+    const hint = hints[i];
+    const providerMatch = !hint.provider || provider.includes(hint.provider);
+    const modelMatch = !hint.model || modelKey.includes(hint.model);
+    if (providerMatch && modelMatch) return hints.length - i;
+  }
+  return 0;
+}
+
 interface TestModelRef {
   id: string;
   modelKey: string;
@@ -168,6 +336,7 @@ export default function AIAssignmentsPage() {
   const [selectedModel, setSelectedModel] = useState("");
   const [selectedFallback, setSelectedFallback] = useState("");
   const [applyingDefaults, setApplyingDefaults] = useState(false);
+  const [applyingRecommendation, setApplyingRecommendation] = useState<string | null>(null);
   // null = idle, "__all__" = full setup test, otherwise the module key being tested
   const [testingKey, setTestingKey] = useState<string | null>(null);
   const [testSummary, setTestSummary] = useState<TestResponse | null>(null);
@@ -306,6 +475,123 @@ export default function AIAssignmentsPage() {
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   };
 
+  // Match the recommended model families against the models actually configured.
+  const recommendationFor = (moduleKey: string): ModuleRecommendation | null => {
+    const advice = MODEL_ADVICE[moduleKey];
+    if (!advice) return null;
+
+    const pick = (hints: ModelHint[], excludeId?: string) => {
+      const best = models
+        .filter((m) => m.id !== excludeId)
+        .map((m) => ({ model: m, score: rankByHints(m, hints) }))
+        .filter((entry) => entry.score > 0)
+        .sort(
+          (a, b) =>
+            b.score - a.score || a.model.displayName.localeCompare(b.model.displayName)
+        )[0];
+      return best?.model ?? null;
+    };
+
+    const primary = pick(advice.primary);
+    const fallback = pick(advice.fallback, primary?.id);
+    return { advice, primary, fallback };
+  };
+
+  const saveRecommendations = async (
+    entries: Array<{ moduleKey: string; primary: ModelOption; fallback: ModelOption | null }>
+  ) => {
+    if (entries.length === 0) {
+      toast.error("No recommended model is configured. Add one in AI Models first.");
+      return;
+    }
+    const res = await fetch("/api/v1/admin/ai/assignments", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        assignments: entries.map((e) => ({
+          moduleKey: e.moduleKey,
+          modelId: e.primary.id,
+          fallbackModelId: e.fallback?.id ?? null,
+          tenantId: scopeTenantId,
+        })),
+      }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => null);
+      toast.error(d?.error?.message || "Could not apply recommendation");
+      return false;
+    }
+    toast.success(
+      entries.length === 1
+        ? `Applied recommendation for ${MODULES.find((m) => m.key === entries[0].moduleKey)?.label ?? entries[0].moduleKey}`
+        : `Applied ${entries.length} recommended assignments`
+    );
+    setEditingModule(null);
+    setSelectedModel("");
+    setSelectedFallback("");
+    setTestSummary(null);
+    setTestError(null);
+    await fetchAssignments();
+    return true;
+  };
+
+  const applyRecommendation = async (moduleKey: string) => {
+    const rec = recommendationFor(moduleKey);
+    if (!rec?.primary) {
+      toast.error("No recommended model is configured. Add one in AI Models first.");
+      return;
+    }
+    setApplyingRecommendation(moduleKey);
+    try {
+      await saveRecommendations([
+        { moduleKey, primary: rec.primary, fallback: rec.fallback },
+      ]);
+    } catch {
+      toast.error("Could not apply recommendation");
+    } finally {
+      setApplyingRecommendation(null);
+    }
+  };
+
+  const useRecommendation = (moduleKey: string, fillForm: boolean) => {
+    const rec = recommendationFor(moduleKey);
+    if (!rec?.primary) return;
+    if (fillForm) {
+      setSelectedModel(rec.primary.id);
+      setSelectedFallback(rec.fallback?.id ?? "");
+      return;
+    }
+    applyRecommendation(moduleKey);
+  };
+
+  const applyAllRecommendations = async () => {
+    if (
+      !confirm(
+        "Apply the recommended model family to every module in this scope? Existing assignments will be replaced."
+      )
+    ) {
+      return;
+    }
+    const entries = MODULES.flatMap((mod) => {
+      const rec = recommendationFor(mod.key);
+      return rec?.primary
+        ? [{ moduleKey: mod.key, primary: rec.primary, fallback: rec.fallback }]
+        : [];
+    });
+    if (entries.length === 0) {
+      toast.error("No recommended models are configured. Add models in AI Models first.");
+      return;
+    }
+    setApplyingRecommendation("__all__");
+    try {
+      await saveRecommendations(entries);
+    } catch {
+      toast.error("Could not apply recommendations");
+    } finally {
+      setApplyingRecommendation(null);
+    }
+  };
+
   // Modules that don't have a result yet in the current view. "Test AI setup"
   // only runs these so a second click doesn't spend tokens again.
   const testedModuleKeys = new Set(
@@ -439,8 +725,23 @@ export default function AIAssignmentsPage() {
           <div className="flex flex-wrap items-end gap-2">
             <Button
               variant="outline"
+              onClick={applyAllRecommendations}
+              disabled={applyingRecommendation !== null || applyingDefaults || testingKey !== null}
+              title="Apply the best model family for each module"
+            >
+              {applyingRecommendation === "__all__" ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Wand2 className="mr-2 h-4 w-4" />
+              )}
+              {applyingRecommendation === "__all__"
+                ? "Applying…"
+                : "Apply recommendations"}
+            </Button>
+            <Button
+              variant="outline"
               onClick={applyDefaults}
-              disabled={applyingDefaults || testingKey !== null}
+              disabled={applyingDefaults || applyingRecommendation !== null || testingKey !== null}
               title="Set every module to Groq primary + Ollama fallback"
             >
               {applyingDefaults ? (
@@ -452,7 +753,7 @@ export default function AIAssignmentsPage() {
             </Button>
             <Button
               onClick={() => runTest()}
-              disabled={testingKey !== null || applyingDefaults}
+              disabled={testingKey !== null || applyingDefaults || applyingRecommendation !== null}
             >
               {testingKey === "__all__" ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -490,6 +791,63 @@ export default function AIAssignmentsPage() {
             )}
           </div>
         </div>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Lightbulb className="h-4 w-4 text-amber-500" />
+                  Best model for each job
+                </CardTitle>
+                <CardDescription>
+                  Recommended model family per module. Applying a recommendation picks the
+                  closest model you have already added in AI Models.
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="gap-1">
+                <Sparkles className="h-3 w-3" /> {MODULES.length} modules
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {MODULES.map((mod) => {
+                const rec = recommendationFor(mod.key);
+                if (!rec) return null;
+                return (
+                  <div
+                    key={mod.key}
+                    className="rounded-lg border border-border bg-muted/30 p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <mod.icon className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm font-medium">{mod.label}</p>
+                    </div>
+                    <p className="mt-2 text-xs font-medium text-primary">
+                      {rec.advice.family}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {rec.advice.reason}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Badge variant="secondary" className="max-w-full truncate text-[11px]">
+                        {rec.primary
+                          ? `${rec.primary.displayName} · ${rec.primary.providerDisplayName}`
+                          : "Add a recommended model in AI Models"}
+                      </Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Reasoning-heavy jobs (research, complex analysis) deserve larger models;
+              repetitive jobs (chat, extraction, summaries, drafting) run better on
+              fast, low-cost ones.
+            </p>
+          </CardContent>
+        </Card>
 
         {testError && (
           <Card className="border-destructive/40">
@@ -667,6 +1025,8 @@ export default function AIAssignmentsPage() {
             const test = testSummary?.modules.find(
               (m) => m.moduleKey === mod.key
             );
+            const rec = recommendationFor(mod.key);
+            const recPrimary = rec?.primary ?? null;
 
             return (
               <Card key={mod.key} className="border-l-2 border-l-primary">
@@ -721,6 +1081,53 @@ export default function AIAssignmentsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
+                  {rec && (
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2">
+                      <div className="flex items-start gap-2 text-xs">
+                        <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                        <span>
+                          <span className="font-medium">Recommended:</span>{" "}
+                          {recPrimary ? (
+                            <>
+                              {recPrimary.displayName} ({recPrimary.providerDisplayName})
+                              {rec.fallback &&
+                                ` · fallback ${rec.fallback.displayName}`}
+                            </>
+                          ) : (
+                            rec.advice.family
+                          )}
+                          <span className="block text-muted-foreground">
+                            {rec.advice.reason}
+                          </span>
+                        </span>
+                      </div>
+                      {recPrimary && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => useRecommendation(mod.key, isEditing)}
+                          disabled={
+                            applyingRecommendation !== null ||
+                            saving ||
+                            applyingDefaults ||
+                            testingKey !== null
+                          }
+                          title={
+                            isEditing
+                              ? "Fill the form with the recommended models"
+                              : "Apply this recommendation now"
+                          }
+                        >
+                          {applyingRecommendation === mod.key ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Wand2 className="mr-1 h-3 w-3" />
+                          )}
+                          {isEditing ? "Fill" : "Use recommendation"}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   {!isEditing && modelOpt && (
                     <div className="flex items-center gap-4 px-4 py-3 bg-muted/50 rounded-lg">
                       <div className="flex-1">
