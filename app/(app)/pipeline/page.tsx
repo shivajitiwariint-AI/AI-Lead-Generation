@@ -171,7 +171,7 @@ export default function PipelinePage() {
                             </Link>
                             <div className="mt-2 flex justify-end">
                               <Link
-                                href={`/leads/${lead.id}/message`}
+                                href={`/leads/${lead.id}#email-outreach`}
                                 className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                                 title={`Email ${lead.name}`}
                               >

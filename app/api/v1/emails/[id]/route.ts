@@ -6,10 +6,16 @@ import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/activity";
 
+const attachmentSchema = z.object({
+  name: z.string().min(1).max(200),
+  url: z.string().url().max(1000),
+});
+
 const editSchema = z.object({
   subject: z.string().max(500).optional(),
   body: z.string().max(20000).optional(),
   toAddress: z.string().email().optional(),
+  attachments: z.array(attachmentSchema).max(10).optional(),
 });
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
@@ -64,7 +70,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         subject: data.subject ?? existing.subject,
         body: data.body ?? existing.body,
         toAddress: data.toAddress ?? existing.toAddress,
-        status: existing.status === "approved" ? "approved" : "draft",
+        // Keep the review state so edits don't silently drop an email back to draft.
+        status:
+          existing.status === "approved" || existing.status === "pending_review"
+            ? existing.status
+            : "draft",
+        meta:
+          data.attachments !== undefined
+            ? { ...((existing.meta as Record<string, unknown> | null) ?? {}), attachments: data.attachments }
+            : undefined,
       },
     });
     await recordAudit({

@@ -729,7 +729,7 @@ function LeadsContent() {
                             title="Draft or review outreach email"
                             aria-label={`Email ${lead.name}`}
                           >
-                            <a href={`/leads/${lead.id}/message`}>
+                            <a href={`/leads/${lead.id}#email-outreach`}>
                               <Mail className="h-4 w-4" />
                             </a>
                           </Button>

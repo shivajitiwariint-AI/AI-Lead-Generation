@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,13 @@ import {
   Clock,
   User,
   Edit,
-  MessageCircle,
   Trash2,
 } from "lucide-react";
 import { LeadTakeoverToggle } from "@/components/lead-takeover-toggle";
 import { DeleteLeadButton } from "@/components/delete-lead-button";
 import { LeadOwnerAssign } from "@/components/lead-owner-assign";
+import { EmailQuickActions } from "@/components/email-quick-actions";
+import { LeadDraftComposer } from "@/components/lead-draft-composer";
 import Link from "next/link";
 import { formatIndustry } from "@/lib/industry";
 
@@ -267,57 +268,79 @@ export default async function LeadDetailPage({
                 </div>
               )}
 
-              <div className="mt-6 pt-6 border-t border-border">
-                <h3 className="text-sm font-semibold mb-2">Latest outreach email</h3>
-                {!lastEmail ? (
-                  <p className="text-sm text-muted-foreground">No email drafted yet. Open “Draft Message” to generate one.</p>
-                ) : (
-                  <div className="space-y-2 rounded-lg border border-border p-3">
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <Badge variant="outline">{lastEmail.status.replace(/_/g, " ")}</Badge>
-                      {lastEmail.status === "sent" && <Badge variant="default">Delivered</Badge>}
-                      {(lastEmail.status === "simulated" || lastMeta.simulated) && (
-                        <Badge variant="secondary">Not delivered (simulation)</Badge>
-                      )}
-                      {lastEmail.status === "bounced" && <Badge variant="destructive">Bounced</Badge>}
-                      {lastMeta.model && (
-                        <span className="text-muted-foreground">Model {String(lastMeta.model).slice(0, 24)}…</span>
-                      )}
+            </CardContent>
+          </Card>
+
+          <Card id="email-outreach" className="scroll-mt-24">
+            <CardHeader>
+              <CardTitle>Email outreach</CardTitle>
+              <CardDescription>
+                Write with AI, review and personalise, then approve and send — all on this page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <LeadDraftComposer leadId={lead.id} hasEmail={Boolean(lead.email)} />
+
+              {!lastEmail ? (
+                <div className="rounded-lg border border-border p-4 text-center">
+                  <p className="text-sm font-medium">No email yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Choose Intro or Follow-up above, then click “Write with AI”.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="overflow-hidden rounded-lg border border-border">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/30 px-3 py-2">
+                      <p className="text-sm font-medium">{lastEmail.subject || "(no subject)"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {lastEmail.sentAt
+                          ? `Sent ${new Date(lastEmail.sentAt).toLocaleDateString(undefined, {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}`
+                          : `Created ${new Date(lastEmail.createdAt).toLocaleDateString(undefined, {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}`}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      To: {lastEmail.toAddress} · {lastEmail.sentAt ? `Sent ${new Date(lastEmail.sentAt).toLocaleString()}` : `Created ${new Date(lastEmail.createdAt).toLocaleString()}`}
-                    </p>
-                    {lastMeta.bounceReason && (
-                      <p className="text-xs text-destructive">
-                        Bounce reason: {String(lastMeta.bounceReason).replace(/_/g, " ")}
-                      </p>
-                    )}
-                    {lastMeta.website && (
+                    <div className="space-y-2 p-3">
                       <p className="text-xs text-muted-foreground">
-                        Website in email: <a href={String(lastMeta.website)} target="_blank" rel="noreferrer" className="text-primary hover:underline">{String(lastMeta.website)}</a>
+                        To: {lastEmail.toAddress || "No recipient"}
                       </p>
-                    )}
-                    {Array.isArray(lastMeta.attachments) && lastMeta.attachments.length > 0 && (
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Attachments</p>
-                        {(lastMeta.attachments as Array<{ name: string; url: string }>).map((a) => (
-                          <p key={a.url} className="text-xs">
-                            <a href={a.url} target="_blank" rel="noreferrer" className="text-primary hover:underline">📎 {a.name}</a>
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-sm font-medium">Subject: {lastEmail.subject}</p>
-                    <pre className="whitespace-pre-wrap rounded bg-muted/50 p-3 text-sm">{lastEmail.body}</pre>
-                    {lastMeta.mock && (
-                      <p className="text-xs text-muted-foreground">
-                        This draft used the built-in fallback writer (no live AI model configured). Generate a new
-                        draft from “Draft Message” for a fully personalised version.
-                      </p>
-                    )}
+                      <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
+                        {lastEmail.body}
+                      </pre>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <EmailQuickActions
+                    key={lastEmail.id}
+                    messageId={lastEmail.id}
+                    status={lastEmail.status}
+                    subject={lastEmail.subject ?? ""}
+                    body={lastEmail.body ?? ""}
+                    toAddress={lastEmail.toAddress ?? undefined}
+                    simulated={Boolean(lastMeta.simulated)}
+                    bounceReason={lastMeta.bounceReason ? String(lastMeta.bounceReason) : undefined}
+                    attachments={
+                      Array.isArray(lastMeta.attachments)
+                        ? (lastMeta.attachments as Array<{ name: string; url: string }>)
+                        : []
+                    }
+                  />
+
+                  {lastMeta.mock && (
+                    <p className="text-xs text-muted-foreground">
+                      This draft used the basic writer because no AI model is connected. You can still
+                      edit it before sending.
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -358,11 +381,6 @@ export default async function LeadDetailPage({
               <Button className="w-full" asChild>
                 <Link href={`/leads/${lead.id}/edit`}>
                   <Edit className="h-4 w-4 mr-2" /> Edit Lead
-                </Link>
-              </Button>
-              <Button className="w-full" variant="outline" asChild>
-                <Link href={`/leads/${lead.id}/message`}>
-                  <MessageCircle className="h-4 w-4 mr-2" /> Draft Message
                 </Link>
               </Button>
               <Button className="w-full" variant="outline" asChild>
