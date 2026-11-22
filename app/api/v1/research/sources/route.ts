@@ -5,10 +5,11 @@ import { z } from "zod";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/activity";
+import { ensureManualResearchSources } from "@/lib/research-sources";
 
 const sourceSchema = z.object({
   name: z.string().min(1).max(200),
-  sourceType: z.enum(["directory", "search", "website", "social", "api"]),
+  sourceType: z.enum(["manual", "directory", "search", "website", "social", "api"]),
   url: z.string().max(500).optional().nullable(),
   approved: z.boolean().optional(),
   config: z.record(z.string(), z.any()).optional().nullable(),
@@ -22,9 +23,10 @@ export async function GET(req: NextRequest) {
       { status: 401 }
     );
   }
+  await ensureManualResearchSources(ctx.tenantId);
   const sources = await prisma.researchSource.findMany({
     where: { tenantId: ctx.tenantId },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ approved: "desc" }, { createdAt: "desc" }],
   });
   return NextResponse.json(sources);
 }

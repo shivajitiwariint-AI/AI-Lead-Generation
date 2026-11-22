@@ -153,7 +153,7 @@ export default function DataSourcesPage() {
           </p>
           <p className="mt-2">
             LinkedIn, Justdial, IndiaMART and TradeIndia have no public API for this use, so they are not
-            scraped. You can still add them as manually approved research sources.
+            scraped. They are added automatically as manually approved research sources on the Research page.
           </p>
         </CardContent>
       </Card>

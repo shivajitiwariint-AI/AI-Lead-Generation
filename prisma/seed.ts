@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ensureManualResearchSources } from "@/lib/research-sources";
 import bcrypt from "bcryptjs";
 
 async function main() {
@@ -203,6 +204,8 @@ async function main() {
       { tenantId: defaultTenant.id, name: "Industry web search", sourceType: "search", approved: true },
     ],
   });
+
+  await ensureManualResearchSources(defaultTenant.id);
 
   await prisma.aIBudget.create({
     data: {

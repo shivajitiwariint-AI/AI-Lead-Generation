@@ -3,8 +3,8 @@ import { decryptSecret, maskSecret } from "@/lib/encryption";
 
 /**
  * Official data sources the platform can call. Anything without a supported
- * public API (LinkedIn scraping, Justdial, IndiaMART, TradeIndia) is deliberately
- * not listed here — those can still be added as manually approved research
+ * public API (LinkedIn, Justdial, IndiaMART, TradeIndia) is deliberately not
+ * listed here — those are added automatically as manually approved research
  * sources, but they are never scraped.
  */
 export const DATA_SOURCE_PROVIDERS = [

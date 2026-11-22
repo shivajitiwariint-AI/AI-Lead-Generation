@@ -167,7 +167,10 @@ export default function ResearchPage() {
         <Card>
           <CardHeader>
             <CardTitle>Approved Sources</CardTitle>
-            <CardDescription>Sources the AI may research</CardDescription>
+            <CardDescription>
+              LinkedIn, Justdial, IndiaMART and TradeIndia are included as manually approved sources.
+              They are never scraped — use them to record where a lead was reviewed by a human.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-2">
@@ -182,6 +185,7 @@ export default function ResearchPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="manual">Manually approved</SelectItem>
                   <SelectItem value="search">Web search</SelectItem>
                   <SelectItem value="directory">Directory</SelectItem>
                   <SelectItem value="website">Website</SelectItem>
@@ -216,7 +220,7 @@ export default function ResearchPage() {
                     </div>
                   </div>
                   <Badge variant={s.approved ? "default" : "outline"}>
-                    {s.approved ? "Approved" : "Pending"}
+                    {s.sourceType === "manual" ? "Manual" : s.approved ? "Approved" : "Pending"}
                   </Badge>
                 </div>
               ))}
@@ -303,11 +307,14 @@ export default function ResearchPage() {
                   <SelectValue placeholder="Any approved source" />
                 </SelectTrigger>
                 <SelectContent>
-                  {sources.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
+                  {sources
+                    .filter((s) => s.approved)
+                    .map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}
+                        {s.sourceType === "manual" ? " (manual)" : ""}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">Only sources approved for your workspace are used.</p>
