@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { sanitizeMessageForClient } from "@/lib/email-attachments";
 
 const messageSchema = z.object({
   leadId: z.string().optional().nullable(),
@@ -29,7 +30,7 @@ export async function GET() {
     take: 100,
   });
 
-  return NextResponse.json(messages);
+  return NextResponse.json(messages.map(sanitizeMessageForClient));
 }
 
 export async function POST(req: NextRequest) {

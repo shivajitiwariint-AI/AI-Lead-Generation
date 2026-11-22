@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { generateOutreachEmail } from "@/lib/ai/email";
 import { recordAudit } from "@/lib/activity";
 import { checkSharedRateLimit } from "@/lib/rate-limit";
+import { sanitizeMessageForClient } from "@/lib/email-attachments";
 
 const generateSchema = z.object({
   leadId: z.string().min(1),
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-  return NextResponse.json({ data: messages });
+  return NextResponse.json({ data: messages.map(sanitizeMessageForClient) });
 }
 
 export async function POST(req: NextRequest) {

@@ -12,6 +12,7 @@ import {
   formatFromAddress,
   getSystemSmtpSettings,
 } from "@/lib/smtp";
+import { toNodemailerAttachments, toResendAttachments } from "@/lib/email-attachments";
 
 /**
  * Requirement 6: full email lifecycle —
@@ -363,11 +364,15 @@ export async function sendEmail(params: {
     return { sent: false, simulated: false, reason: `Recipient suppressed: ${suppressed.reason}` };
   }
 
-  // Try system Gmail SMTP first (env fallback), then per-company config, then Resend, then simulated.
+  // Try SMTP (system mailbox configured via SMTP_* env vars), then Resend,
+  // then a simulated send for local runs. Suppression entries always block sending.
   let sent = false;
   let simulated = true;
   let providerUsed = "local";
   let fromAddress = message.fromAddress;
+  const storedAttachments = (message.meta as any)?.attachments;
+  const fileAttachments = toNodemailerAttachments(storedAttachments);
+  const resendAttachments = toResendAttachments(storedAttachments);
 
   // 1) Per‑company SMTP config
   const smtpConfig = await prisma.smtpConfig.findUnique({ where: { tenantId } });
@@ -378,6 +383,7 @@ export async function sendEmail(params: {
         subject: message.subject || "(no subject)",
         text: message.body || "",
         tenantId,
+        attachments: fileAttachments,
       });
       if (!result.success) {
         // Hard bounce – already stored in SuppressionEntry by sendWithBounceTracking
@@ -408,6 +414,7 @@ export async function sendEmail(params: {
         subject: message.subject || "(no subject)",
         text: message.body || "",
         tenantId,
+        attachments: fileAttachments,
       });
       if (!result.success) {
         simulated = false;
@@ -451,6 +458,7 @@ export async function sendEmail(params: {
             to: [message.toAddress],
             subject: message.subject || "(no subject)",
             html: (message.body || "").replace(/\n/g, "<br/>"),
+            ...(resendAttachments.length ? { attachments: resendAttachments } : {}),
           }),
         });
         if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);

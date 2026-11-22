@@ -5,6 +5,7 @@ import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/ai/email";
 import { checkSharedRateLimit } from "@/lib/rate-limit";
+import { sanitizeMessageForClient } from "@/lib/email-attachments";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await getAuthContext();
@@ -36,7 +37,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       actorType: "user",
     });
     const message = await prisma.message.findUnique({ where: { id: params.id } });
-    return NextResponse.json({ ...result, message });
+    return NextResponse.json({
+      ...result,
+      message: message ? sanitizeMessageForClient(message) : message,
+    });
   } catch (err: any) {
     return NextResponse.json(
       { error: { code: "SERVER_ERROR", message: err.message } },

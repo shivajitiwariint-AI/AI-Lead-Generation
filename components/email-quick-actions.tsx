@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertTriangle,
   Check,
@@ -17,14 +17,23 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  RotateCcw,
   Send,
   Trash2,
+  Upload,
   X,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MiniEditor } from "@/components/mini-editor";
 
-export type EmailAttachment = { name: string; url: string };
+export type EmailAttachment = {
+  name: string;
+  url?: string;
+  content?: string;
+  mimeType?: string;
+  size?: number;
+};
 
 type Tone = "warning" | "success" | "danger" | "muted";
 
@@ -37,8 +46,17 @@ const TONE_CLASSES: Record<Tone, string> = {
   muted: "border-border bg-muted/40 text-foreground",
 };
 
+const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_FILES = 2;
+
 function prettyStatus(status: string) {
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatBytes(bytes?: number) {
+  if (!bytes) return "";
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function statusMessage(
@@ -88,7 +106,7 @@ function statusMessage(
       icon: XCircle,
       tone: "muted",
       title: "Draft rejected",
-      text: "This draft will not be sent. Write a new draft above, or edit this one to bring it back.",
+      text: "This draft will not be sent. Write a new draft above, or reopen it to make changes.",
     };
   }
   if (status === "pending_review" || status === "draft") {
@@ -107,6 +125,17 @@ function statusMessage(
   };
 }
 
+function attachmentBlock(body: string, attachments: EmailAttachment[]) {
+  const withoutOldBlock = body
+    .replace(/(?:\r?\n){2,}Attachments:\r?\n[\s\S]*$/i, "")
+    .trimEnd();
+  if (!attachments.length) return withoutOldBlock;
+  const lines = attachments.map((a) =>
+    a.url ? `${a.name} — ${a.url}` : `Attached: ${a.name}`
+  );
+  return `${withoutOldBlock}\n\nAttachments:\n${lines.join("\n")}`;
+}
+
 export function EmailQuickActions({
   messageId,
   status: initialStatus,
@@ -116,6 +145,7 @@ export function EmailQuickActions({
   simulated = false,
   bounceReason,
   attachments: initialAttachments = [],
+  onChanged,
 }: {
   messageId: string;
   status: string;
@@ -125,6 +155,7 @@ export function EmailQuickActions({
   simulated?: boolean;
   bounceReason?: string;
   attachments?: EmailAttachment[];
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
@@ -133,6 +164,7 @@ export function EmailQuickActions({
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
   const [attachments, setAttachments] = useState<EmailAttachment[]>(initialAttachments);
+  const [savedAttachments, setSavedAttachments] = useState<EmailAttachment[]>(initialAttachments);
   const [attName, setAttName] = useState("");
   const [attUrl, setAttUrl] = useState("");
 
@@ -141,6 +173,10 @@ export function EmailQuickActions({
   const canAttach = status !== "sent" && status !== "bounced";
   const info = statusMessage(status, simulated, bounceReason, toAddress);
   const StatusIcon = info.icon;
+
+  const notifyChanged = () => {
+    onChanged?.();
+  };
 
   const approve = async () => {
     setBusy("approve");
@@ -154,6 +190,7 @@ export function EmailQuickActions({
       if (!res.ok) throw new Error(d?.error?.message || "Could not approve the email");
       setStatus("approved");
       toast.success("Approved! You can send it now.");
+      notifyChanged();
       router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Could not approve the email");
@@ -175,6 +212,7 @@ export function EmailQuickActions({
       if (!res.ok) throw new Error(d?.error?.message || "Could not reject the draft");
       setStatus("rejected");
       toast.success("Draft rejected");
+      notifyChanged();
       router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Could not reject the draft");
@@ -183,7 +221,35 @@ export function EmailQuickActions({
     }
   };
 
+  const reopen = async () => {
+    setBusy("reopen");
+    try {
+      const res = await fetch(`/api/v1/emails/${messageId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject: subject.trim() || initialSubject, body }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error?.message || "Could not reopen the draft");
+      setStatus(d?.status ?? "draft");
+      toast.success("Draft reopened — review and approve when ready.");
+      notifyChanged();
+      router.refresh();
+    } catch (e: any) {
+      toast.error(e.message || "Could not reopen the draft");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const send = async () => {
+    if (
+      !confirm(
+        `Send this email${toAddress ? ` to ${toAddress}` : ""}?\n\nSubject: ${subject}\n\nMake sure any edits are saved first.`
+      )
+    ) {
+      return;
+    }
     setBusy("send");
     try {
       const res = await fetch(`/api/v1/emails/${messageId}/send`, {
@@ -203,6 +269,7 @@ export function EmailQuickActions({
         setStatus("bounced");
         toast.error(d?.reason ? `Not delivered: ${d.reason}` : "Email not delivered");
       }
+      notifyChanged();
       router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Could not send the email");
@@ -232,6 +299,7 @@ export function EmailQuickActions({
       if (d?.status) setStatus(d.status);
       toast.success("Changes saved. Review and approve when ready.");
       setMode("view");
+      notifyChanged();
       router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Could not save changes");
@@ -257,17 +325,45 @@ export function EmailQuickActions({
     setAttUrl("");
   };
 
+  const addFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      return toast.error("File is too large — upload files up to 2 MB");
+    }
+    if (attachments.filter((a) => !a.url).length >= MAX_FILES) {
+      return toast.error(`You can attach up to ${MAX_FILES} uploaded files`);
+    }
+    if (attachments.some((a) => a.name === file.name)) {
+      return toast.error("A file with that name is already attached");
+    }
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(new Error("Could not read the file"));
+        reader.readAsDataURL(file);
+      });
+      const base64 = dataUrl.split(",")[1];
+      if (!base64) throw new Error("Could not read the file");
+      setAttachments((prev) => [
+        ...prev,
+        {
+          name: file.name,
+          content: base64,
+          mimeType: file.type || "application/octet-stream",
+          size: file.size,
+        },
+      ]);
+      toast.success(`${file.name} added — save to attach it to the email`);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not read the file");
+    }
+  };
+
   const saveAttachments = async () => {
     setBusy("attach");
     try {
-      // Attachments are delivered as links in the message body, so append any
-      // document names that are not already mentioned.
-      const missing = attachments.filter((a) => !body.includes(a.name));
-      const nextBody =
-        missing.length > 0
-          ? `${body}\n\nAttachments:\n${missing.map((a) => `${a.name} — ${a.url}`).join("\n")}`
-          : body;
-
+      const nextBody = attachmentBlock(body, attachments);
       const res = await fetch(`/api/v1/emails/${messageId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -277,8 +373,10 @@ export function EmailQuickActions({
       if (!res.ok) throw new Error(d?.error?.message || "Could not save the attachment");
       if (d?.status) setStatus(d.status);
       setBody(nextBody);
-      toast.success("Document added to the email");
+      setSavedAttachments(attachments);
+      toast.success("Attachments saved with this email");
       setMode("view");
+      notifyChanged();
       router.refresh();
     } catch (e: any) {
       toast.error(e.message || "Could not save the attachment");
@@ -287,7 +385,15 @@ export function EmailQuickActions({
     }
   };
 
+  const cancelAttach = () => {
+    setAttachments(savedAttachments);
+    setAttName("");
+    setAttUrl("");
+    setMode("view");
+  };
+
   const anyBusy = busy !== null;
+  const uploadedCount = attachments.filter((a) => !a.url).length;
 
   return (
     <div className="space-y-3">
@@ -296,6 +402,14 @@ export function EmailQuickActions({
         <div className="min-w-0">
           <p className="text-sm font-medium">{info.title}</p>
           {info.text && <p className="mt-0.5 text-xs opacity-80">{info.text}</p>}
+          {status === "simulated" && (
+            <Link
+              href="/settings"
+              className="mt-1 inline-block text-xs font-medium underline underline-offset-2"
+            >
+              Open email settings
+            </Link>
+          )}
         </div>
       </div>
 
@@ -330,6 +444,16 @@ export function EmailQuickActions({
             Retry sending
           </Button>
         )}
+        {status === "rejected" && (
+          <Button size="sm" onClick={reopen} disabled={anyBusy} title="Reopen this draft">
+            {busy === "reopen" ? (
+              <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-1 h-4 w-4" />
+            )}
+            Reopen draft
+          </Button>
+        )}
         {canEdit && (
           <Button
             size="sm"
@@ -347,7 +471,7 @@ export function EmailQuickActions({
             variant="outline"
             onClick={() => setMode(mode === "attach" ? "view" : "attach")}
             disabled={anyBusy}
-            title="Attach a document link"
+            title="Attach a document"
           >
             <Paperclip className="mr-1 h-4 w-4" /> Attach document
           </Button>
@@ -368,19 +492,31 @@ export function EmailQuickActions({
 
       {attachments.length > 0 && mode !== "attach" && (
         <div className="flex flex-wrap gap-2">
-          {attachments.map((a) => (
-            <a
-              key={`${a.name}-${a.url}`}
-              href={a.url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground hover:bg-muted"
-              title={a.url}
-            >
-              <Paperclip className="h-3 w-3 shrink-0" />
-              <span className="truncate">{a.name}</span>
-            </a>
-          ))}
+          {attachments.map((a) =>
+            a.url ? (
+              <a
+                key={`${a.name}-${a.url}`}
+                href={a.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+                title={a.url}
+              >
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <span className="truncate">{a.name}</span>
+              </a>
+            ) : (
+              <span
+                key={a.name}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs text-foreground"
+                title={`${a.name}${a.mimeType ? ` · ${a.mimeType}` : ""}`}
+              >
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <span className="truncate">{a.name}</span>
+                <span className="text-muted-foreground">{formatBytes(a.size)}</span>
+              </span>
+            )
+          )}
         </div>
       )}
 
@@ -401,13 +537,8 @@ export function EmailQuickActions({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor={`body-${messageId}`}>Message</Label>
-            <Textarea
-              id={`body-${messageId}`}
-              rows={12}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-            />
+            <Label>Message</Label>
+            <MiniEditor value={body} onChange={setBody} />
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={saveEdit} disabled={anyBusy}>
@@ -435,23 +566,30 @@ export function EmailQuickActions({
           <div>
             <p className="text-sm font-medium">Attach a document</p>
             <p className="text-xs text-muted-foreground">
-              Upload your file to Google Drive, Dropbox or your website, then paste the share link here.
+              Upload a file directly, or paste a link to a document stored in Drive, Dropbox or your website.
             </p>
           </div>
+
           {attachments.length > 0 ? (
             <ul className="space-y-2">
               {attachments.map((a, i) => (
                 <li key={`${a.name}-${i}`} className="flex items-center gap-2 text-sm">
                   <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate font-medium">{a.name}</span>
-                  <a
-                    href={a.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="max-w-[180px] truncate text-xs text-primary hover:underline"
-                  >
-                    {a.url}
-                  </a>
+                  {a.url ? (
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="max-w-[180px] truncate text-xs text-primary hover:underline"
+                    >
+                      {a.url}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {a.mimeType ?? "File"} {a.size ? `· ${formatBytes(a.size)}` : ""}
+                    </span>
+                  )}
                   <Button
                     size="sm"
                     variant="ghost"
@@ -466,34 +604,56 @@ export function EmailQuickActions({
           ) : (
             <p className="text-sm text-muted-foreground">No documents attached yet.</p>
           )}
-          <div className="grid gap-2 sm:grid-cols-[1fr_1.5fr_auto]">
+
+          <div className="space-y-2 rounded-md border border-border bg-muted/20 p-2.5">
+            <Label htmlFor={`file-${messageId}`} className="flex items-center gap-1.5 text-xs">
+              <Upload className="h-3.5 w-3.5" /> Upload a file (max 2 MB, up to {MAX_FILES} files)
+            </Label>
             <Input
-              value={attName}
-              onChange={(e) => setAttName(e.target.value)}
-              placeholder="Document name (e.g. Price List.pdf)"
-              aria-label="Document name"
+              id={`file-${messageId}`}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg,.jpeg"
+              disabled={anyBusy || uploadedCount >= MAX_FILES}
+              onChange={(e) => {
+                void addFile(e.target.files?.[0]);
+                e.currentTarget.value = "";
+              }}
+              className="h-9 cursor-pointer text-xs file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
             />
-            <Input
-              value={attUrl}
-              onChange={(e) => setAttUrl(e.target.value)}
-              placeholder="Paste public link (https://…)"
-              aria-label="Document link"
-            />
-            <Button variant="outline" onClick={addAttachment} disabled={anyBusy} title="Add document">
-              <Plus className="mr-1 h-4 w-4" /> Add
-            </Button>
           </div>
+
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground">Or link to a document</p>
+            <div className="grid gap-2 sm:grid-cols-[1fr_1.5fr_auto]">
+              <Input
+                value={attName}
+                onChange={(e) => setAttName(e.target.value)}
+                placeholder="Document name (e.g. Price List.pdf)"
+                aria-label="Document name"
+              />
+              <Input
+                value={attUrl}
+                onChange={(e) => setAttUrl(e.target.value)}
+                placeholder="Paste public link (https://…)"
+                aria-label="Document link"
+              />
+              <Button variant="outline" onClick={addAttachment} disabled={anyBusy} title="Add document link">
+                <Plus className="mr-1 h-4 w-4" /> Add
+              </Button>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={saveAttachments} disabled={anyBusy}>
               {busy === "attach" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-              Save document
+              Save attachments
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setMode("view")} disabled={anyBusy}>
+            <Button size="sm" variant="outline" onClick={cancelAttach} disabled={anyBusy}>
               Cancel
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            The link is added to the email body so the recipient can open it.
+            Uploaded files are delivered as real email attachments. Links are added to the email body.
           </p>
         </div>
       )}

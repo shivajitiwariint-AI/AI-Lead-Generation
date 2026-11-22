@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { rejectEmail } from "@/lib/ai/email";
+import { sanitizeMessageForClient } from "@/lib/email-attachments";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const ctx = await getAuthContext();
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       actorId: ctx.userId,
       note: reason,
     });
-    return NextResponse.json(updated);
+    return NextResponse.json(sanitizeMessageForClient(updated));
   } catch (err: any) {
     return NextResponse.json(
       { error: { code: "SERVER_ERROR", message: err.message } },

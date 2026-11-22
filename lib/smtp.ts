@@ -102,7 +102,13 @@ export async function verifySmtp(tenantId: string, passwordPlain?: string) {
 
 export async function sendViaSmtp(
   tenantId: string,
-  opts: { to: string; subject: string; text: string; html?: string }
+  opts: {
+    to: string;
+    subject: string;
+    text: string;
+    html?: string;
+    attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
+  }
 ) {
   const config = await prisma.smtpConfig.findUnique({ where: { tenantId } });
   if (!config || !config.enabled) throw new Error("SMTP not configured for this company");
@@ -115,6 +121,7 @@ export async function sendViaSmtp(
     subject: opts.subject,
     text: opts.text,
     html: opts.html ?? opts.text.replace(/\n/g, "<br/>"),
+    attachments: opts.attachments,
   });
 }
 
@@ -128,6 +135,7 @@ export async function sendSystemEmail(opts: {
   text: string;
   html?: string;
   replyTo?: string;
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
 }) {
   const settings = getSystemSmtpSettings();
   if (!settings) throw new Error("System SMTP is not configured");
@@ -139,6 +147,7 @@ export async function sendSystemEmail(opts: {
     text: opts.text,
     html: opts.html ?? opts.text.replace(/\n/g, "<br/>"),
     replyTo: opts.replyTo,
+    attachments: opts.attachments,
   });
 }
 
@@ -180,9 +189,11 @@ export async function sendWithBounceTracking(
     html?: string;
     replyTo?: string;
     tenantId: string;
+    attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>;
+    smtp?: SystemSmtpSettings;
   }
 ): Promise<{ success: true; messageId: string } | { success: false; bounceReason: string }> {
-  const settings = getSystemSmtpSettings();
+  const settings = opts.smtp ?? getSystemSmtpSettings();
   if (!settings) throw new Error("System SMTP is not configured");
 
   const transport = createTransport(settings);
@@ -196,6 +207,7 @@ const mailOptions: nodemailer.MailOptions = {
     text: opts.text,
     html: opts.html ?? opts.text.replace(/\n/g, "<br/>"),
     replyTo: opts.replyTo,
+    attachments: opts.attachments,
   };
 
   try {

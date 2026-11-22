@@ -53,8 +53,8 @@ echo ========================================
 echo  Setup Complete!
 echo ========================================
 echo.
-echo Demo Login:
-echo   Email:    admin@demo.com
+echo Admin login:
+echo   Email:    admin@example.com
 echo   Password: Admin123!
 echo.
 echo Start the app: npm run dev

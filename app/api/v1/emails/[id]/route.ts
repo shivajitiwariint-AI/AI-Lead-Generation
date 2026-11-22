@@ -5,10 +5,24 @@ import { z } from "zod";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
 import { recordAudit } from "@/lib/activity";
+import {
+  MAX_UPLOAD_BASE64_CHARS,
+  MAX_UPLOAD_BYTES,
+  mergeAttachments,
+  sanitizeMessageForClient,
+  validateAttachments,
+} from "@/lib/email-attachments";
 
+/**
+ * Attachments may arrive as a public link, an uploaded file, or (for files
+ * uploaded earlier) just a name that is matched back to the stored bytes.
+ */
 const attachmentSchema = z.object({
   name: z.string().min(1).max(200),
-  url: z.string().url().max(1000),
+  url: z.string().url().max(2000).optional(),
+  content: z.string().max(MAX_UPLOAD_BASE64_CHARS).optional(),
+  mimeType: z.string().max(200).optional(),
+  size: z.number().int().nonnegative().max(MAX_UPLOAD_BYTES).optional(),
 });
 
 const editSchema = z.object({
@@ -35,7 +49,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       { status: 404 }
     );
   }
-  return NextResponse.json(message);
+  return NextResponse.json(sanitizeMessageForClient(message));
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -64,6 +78,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         { status: 409 }
       );
     }
+
+    const existingMeta = (existing.meta as Record<string, unknown> | null) ?? {};
+    let attachments: ReturnType<typeof mergeAttachments> | undefined;
+    if (data.attachments !== undefined) {
+      attachments = mergeAttachments(existingMeta.attachments, data.attachments);
+      const attachmentError = validateAttachments(attachments);
+      if (attachmentError) {
+        return NextResponse.json(
+          { error: { code: "VALIDATION_ERROR", message: attachmentError } },
+          { status: 400 }
+        );
+      }
+    }
+
     const updated = await prisma.message.update({
       where: { id: params.id },
       data: {
@@ -76,8 +104,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
             ? existing.status
             : "draft",
         meta:
-          data.attachments !== undefined
-            ? { ...((existing.meta as Record<string, unknown> | null) ?? {}), attachments: data.attachments }
+          attachments !== undefined
+            ? { ...existingMeta, attachments: attachments as any }
             : undefined,
       },
     });
@@ -91,7 +119,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       targetId: params.id,
       metadata: { fields: Object.keys(data) },
     });
-    return NextResponse.json(updated);
+    return NextResponse.json(sanitizeMessageForClient(updated));
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return NextResponse.json(
