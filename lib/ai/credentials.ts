@@ -84,17 +84,13 @@ export async function resolveProviderCredential(
     }
   }
 
-  let platformRow = await prisma.aICredential.findUnique({
+  // The scope migration converted legacy NULL rows to "platform" and made the
+  // column non-null, so there is no valid NULL-tenant fallback to query here.
+  const platformRow = await prisma.aICredential.findUnique({
     where: {
       tenantId_providerId: { tenantId: PLATFORM_SCOPE, providerId },
     },
   });
-  if (!platformRow) {
-    // Backward compatibility for databases that still contain NULL platform rows.
-    platformRow = await prisma.aICredential.findFirst({
-      where: { providerId, tenantId: null as any },
-    });
-  }
   if (platformRow?.enabled) {
     const secret = safeDecrypt(platformRow.encryptedSecret);
     if (secret) return secret;
@@ -190,13 +186,9 @@ export async function listProviderKeyMatrix(): Promise<ProviderKeyMatrix> {
   const statuses: ProviderKeyStatus[] = [];
   for (const provider of providers) {
     const envKey = envCredentialFor(provider.providerKey);
-    const platformRow =
-      credentials.find(
-        (c) => c.providerId === provider.id && c.tenantId === PLATFORM_SCOPE
-      ) ??
-      credentials.find(
-        (c) => c.providerId === provider.id && (c.tenantId as any) == null
-      );
+    const platformRow = credentials.find(
+      (c) => c.providerId === provider.id && c.tenantId === PLATFORM_SCOPE
+    );
 
     for (const scope of scopes) {
       const ownRow = credentials.find(
