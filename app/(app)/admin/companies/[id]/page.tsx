@@ -363,6 +363,23 @@ export default function AdminCompanyDetailPage() {
         const showSW = isSW || (!isRE && !isSW);
         return (
           <>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4 py-4">
+                <div>
+                  <CardTitle className="text-base">LLM API keys</CardTitle>
+                  <CardDescription>
+                    Set company-specific provider keys or inherit the global keys.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/admin/ai-credentials?tenantId=${id}`)}
+                >
+                  <KeyRound className="mr-2 h-4 w-4" /> Manage keys
+                </Button>
+              </CardHeader>
+            </Card>
             <CompanyAIModelsCard tenantId={id} />
             <SmtpCard tenantId={id} />
             <SearchScheduleCard tenantId={id} />

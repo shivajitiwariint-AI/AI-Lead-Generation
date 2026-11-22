@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSuperAdmin } from "@/lib/auth-helpers";
 import { prisma } from "@/lib/prisma";
+import { envCredentialFor, PLATFORM_SCOPE } from "@/lib/ai/credentials";
 
 const providerSchema = z.object({
   providerKey: z.enum([
@@ -12,6 +13,7 @@ const providerSchema = z.object({
     "xai_grok",
     "ollama",
     "openai",
+    "groq",
   ]),
   displayName: z.string().min(1),
   enabled: z.boolean().default(true),
@@ -36,14 +38,20 @@ export async function GET() {
             enabled: true,
           },
         });
-        const credentials = await prisma.aICredential.findMany({
-          where: { providerId: provider.id },
+        const platformCredential = await prisma.aICredential.findUnique({
+          where: {
+            tenantId_providerId: {
+              tenantId: PLATFORM_SCOPE,
+              providerId: provider.id,
+            },
+          },
           select: { id: true },
         });
         return {
           ...provider,
           models,
-          _count: { credentials: credentials.length },
+          globalKeyConfigured: Boolean(platformCredential || envCredentialFor(provider.providerKey)),
+          _count: { credentials: platformCredential ? 1 : 0 },
         };
       })
     );

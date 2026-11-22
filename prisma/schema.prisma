@@ -445,15 +445,20 @@ model AIModel {
   @@index([enabled])
 }
 
+// Encrypted LLM provider keys. tenantId "platform" = global fallback used by
+// every company; a real tenant id is a company-specific override.
 model AICredential {
-  id           String   @id @default(uuid()) @db.Char(36)
-  tenantId     String?  @db.Char(36)
-  providerId   String   @db.Char(36)
-  encryptedSecret String @db.Text
-  keyVersion   Int      @default(1)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid()) @db.Char(36)
+  tenantId        String   @default("platform") @db.Char(36)
+  providerId      String   @db.Char(36)
+  encryptedSecret String   @db.Text
+  keyVersion      Int      @default(1)
+  lastFour        String?  @db.VarChar(20)
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
+  @@unique([tenantId, providerId])
   @@index([tenantId])
   @@index([providerId])
 }

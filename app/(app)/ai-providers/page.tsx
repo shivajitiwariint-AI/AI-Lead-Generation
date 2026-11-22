@@ -240,6 +240,21 @@ export default function AIProvidersPage() {
         </div>
       </div>
 
+      <Card className="mb-6">
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <p className="text-sm text-muted-foreground">
+            Manage encrypted keys for every provider, globally and per company, on the LLM Keys page.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => (window.location.href = "/admin/ai-credentials")}
+          >
+            <Key className="mr-2 h-4 w-4" /> Manage LLM Keys
+          </Button>
+        </CardContent>
+      </Card>
+
       {showForm && (
         <Card className="mb-6">
           <CardHeader>

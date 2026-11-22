@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/prisma";
-import { encryptSecret, decryptSecret, maskSecret } from "@/lib/encryption";
+import { decryptSecret, maskSecret } from "@/lib/encryption";
 import { getAuthContext } from "@/lib/auth-helpers";
 import { recordAudit } from "@/lib/activity";
 import { mockGenerate, estimateTokens } from "@/lib/ai/mock-engine";
 import { isAIEnabled, isAITenantEnabled, isModelEnabledForTenant } from "@/lib/ai/settings";
+import {
+  resolveProviderCredential,
+  saveProviderCredential,
+  envCredentialFor,
+} from "@/lib/ai/credentials";
 import { randomUUID } from "crypto";
 
 export type AIProviderKey =
@@ -159,23 +164,7 @@ export async function getProviderCredential(
   providerId: string,
   tenantId?: string
 ): Promise<string | null> {
-  let credential = null;
-
-  if (tenantId) {
-    credential = await prisma.aICredential.findFirst({
-      where: { providerId, tenantId },
-    });
-  }
-
-  if (!credential) {
-    credential = await prisma.aICredential.findFirst({
-      where: { providerId, tenantId: null },
-    });
-  }
-
-  if (!credential) return null;
-
-  return decryptSecret(credential.encryptedSecret);
+  return resolveProviderCredential(providerId, tenantId);
 }
 
 /**
@@ -186,32 +175,7 @@ export async function storeProviderCredential(
   secret: string,
   tenantId?: string
 ) {
-  const encrypted = encryptSecret(secret);
-
-  // Upsert: update if exists, create if not
-  const existing = await prisma.aICredential.findFirst({
-    where: { providerId, tenantId: tenantId ?? null },
-  });
-
-  if (existing) {
-    return prisma.aICredential.update({
-      where: { id: existing.id },
-      data: {
-        encryptedSecret: encrypted,
-        keyVersion: existing.keyVersion + 1,
-        updatedAt: new Date(),
-      },
-    });
-  }
-
-  return prisma.aICredential.create({
-    data: {
-      tenantId: tenantId ?? null,
-      providerId,
-      encryptedSecret: encrypted,
-      keyVersion: 1,
-    },
-  });
+  return saveProviderCredential(providerId, secret, tenantId);
 }
 
 /**
@@ -518,23 +482,6 @@ export class AIBudgetExceededError extends Error {
     super(`AI budget exceeded: $${usage.toFixed(4)} of $${limit} used this month`);
     this.name = "AIBudgetExceededError";
   }
-}
-
-const ENV_KEY_BY_PROVIDER: Partial<Record<AIProviderKey, string>> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  google_gemini: "GOOGLE_GENERATIVE_AI_API_KEY",
-  xai_grok: "XAI_API_KEY",
-  groq: "GROQ_API_KEY",
-};
-
-function envCredentialFor(providerKey: string): string | null {
-  if (providerKey === "ollama") {
-    return process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-  }
-  const envName = ENV_KEY_BY_PROVIDER[providerKey as AIProviderKey];
-  const value = envName ? process.env[envName] : undefined;
-  return value && value.trim() ? value.trim() : null;
 }
 
 interface ProviderCallInput {

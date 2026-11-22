@@ -239,10 +239,15 @@ async function main() {
     { providerKey: "xai_grok", displayName: "xAI Grok", enabled: true },
     { providerKey: "ollama", displayName: "Ollama", enabled: true },
     { providerKey: "openai", displayName: "OpenAI", enabled: false },
+    { providerKey: "groq", displayName: "Groq", enabled: true },
   ];
 
   for (const p of providers) {
-    await prisma.aIProvider.create({ data: p });
+    await prisma.aIProvider.upsert({
+      where: { providerKey: p.providerKey },
+      create: p,
+      update: { displayName: p.displayName },
+    });
   }
 
   console.log("✅ Seed completed");

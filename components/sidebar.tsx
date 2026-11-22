@@ -28,6 +28,7 @@ import {
   Mail,
   Activity as ActivityIcon,
   Database,
+  KeyRound,
 } from "lucide-react";
 
 type NavItem = { title: string; href: string; icon: React.ElementType };
@@ -75,6 +76,7 @@ const superAdminGroups: { title: string; items: NavItem[] }[] = [
       { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
       { title: "Companies", href: "/admin/companies", icon: Building2 },
       { title: "AI Providers", href: "/ai-providers", icon: Cpu },
+      { title: "LLM Keys", href: "/admin/ai-credentials", icon: KeyRound },
       { title: "AI Models", href: "/ai-models", icon: Cpu },
       { title: "AI Assignments", href: "/ai-assignments", icon: Target },
       { title: "AI Usage", href: "/ai-usage", icon: BarChart3 },
