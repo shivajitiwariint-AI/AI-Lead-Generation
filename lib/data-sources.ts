@@ -96,6 +96,17 @@ export const DATA_SOURCE_PROVIDERS = [
     secondaryEnv: "REDDIT_CLIENT_SECRET",
     docs: "https://www.reddit.com/dev/api/oauth",
   },
+  {
+    key: "tiktok",
+    label: "TikTok Display API",
+    category: "Social videos",
+    description: "Read short videos from a connected TikTok account (official API only).",
+    secretLabel: "User access token",
+    secondaryLabel: null,
+    env: "TIKTOK_ACCESS_TOKEN",
+    secondaryEnv: null,
+    docs: "https://developers.tiktok.com/doc/display-api-overview",
+  },
 ] as const;
 
 export type DataSourceProviderDefinition = (typeof DATA_SOURCE_PROVIDERS)[number];

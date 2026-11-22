@@ -232,6 +232,8 @@ model Lead {
   consentMarketing    Boolean    @default(false)
   consentCapturedAt   DateTime?
   consentMethod       String?    @db.VarChar(100)
+  // false until a human or a first-party source confirms the contact details.
+  verified            Boolean    @default(false)
   lastContactedAt     DateTime?
 
   // Manual takeover (requirement 8): "ai" | "manual"
@@ -1045,4 +1047,64 @@ model SmtpConfig {
   updatedAt         DateTime @updatedAt
 
   @@index([tenantId])
+}
+
+// ============================================
+// Official social signals (no scraping)
+// ============================================
+
+/// A public social post/video found through an official API or added by a human.
+/// Nothing here is a verified contact and nothing here carries marketing consent.
+model SocialSignal {
+  id             String    @id @default(uuid()) @db.Char(36)
+  tenantId       String    @db.Char(36)
+  platform       String    @db.VarChar(50) // youtube | x | reddit | instagram | tiktok | linkedin | manual
+  kind           String    @db.VarChar(50) // video | short | reel | post
+  title          String    @db.VarChar(300)
+  url            String    @db.VarChar(500)
+  author         String?   @db.VarChar(200)
+  authorHandle   String?   @db.VarChar(200)
+  externalId     String?   @db.VarChar(255)
+  publishedAt    DateTime?
+  views          Int?
+  likes          Int?
+  comments       Int?
+  shares         Int?
+  durationSec    Int?
+  thumbnailUrl   String?   @db.VarChar(500)
+  snippet        String?   @db.Text
+  relevanceScore Int       @default(0)
+  status         String    @default("new") @db.VarChar(50) // new | reviewed | converted | discarded
+  leadId         String?   @db.Char(36)
+  sourceQuery    String?   @db.VarChar(300)
+  discoveredAt   DateTime  @default(now())
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([tenantId, platform, externalId])
+  @@index([tenantId, status])
+  @@index([tenantId, platform, publishedAt])
+  @@index([tenantId, relevanceScore])
+  @@index([leadId])
+}
+
+/// Encrypted, admin-managed configuration for official lead-form webhooks.
+model SocialCampaignSource {
+  id                  String   @id @default(uuid()) @db.Char(36)
+  tenantId            String   @db.Char(36)
+  platform            String   @db.VarChar(50) // meta | linkedin | instagram
+  name                String   @db.VarChar(200)
+  externalAccountId   String?  @db.VarChar(200) // Meta Page ID / LinkedIn org URN
+  formIds             Json?
+  encryptedAppSecret  String?  @db.Text
+  encryptedAccessToken String? @db.Text
+  encryptedVerifyToken String? @db.Text
+  enabled             Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([tenantId, platform, externalAccountId])
+  @@index([tenantId])
+  @@index([platform, externalAccountId])
 }

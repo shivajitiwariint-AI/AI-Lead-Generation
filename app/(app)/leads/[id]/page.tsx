@@ -135,6 +135,9 @@ function sourceLabel(type?: string | null) {
     search: "Web search",
     website: "Website",
     social: "Social",
+    social_signal: "Social signal",
+    meta_lead_form: "Meta lead form",
+    linkedin_lead_form: "LinkedIn lead form",
     import: "Import",
     api: "API",
     manual: "Added manually",
@@ -264,6 +267,13 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                 <Badge variant={lead.consentMarketing ? "secondary" : "outline"}>
                   {lead.consentMarketing ? "Marketing consent recorded" : "No marketing consent"}
                 </Badge>
+                {(source?.sourceType === "social_signal" ||
+                  source?.sourceType === "meta_lead_form" ||
+                  source?.sourceType === "linkedin_lead_form") && (
+                  <Badge variant="outline" className="gap-1">
+                    {lead.verified ? "Verified submission" : "Unverified social lead"}
+                  </Badge>
+                )}
                 {lead.controlMode === "manual" && (
                   <Badge variant="outline" className="gap-1">
                     <Hand className="h-3 w-3" /> You are handling this lead
@@ -396,6 +406,32 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
                     {lead.consentMarketing
                       ? " Marketing consent is recorded on this lead."
                       : " No marketing consent has been captured — confirm you have permission before sending real email."}
+                  </p>
+                </div>
+              )}
+
+              {source?.sourceType === "social_signal" && (
+                <div className="sm:col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">
+                  <p className="font-semibold text-amber-700 dark:text-amber-300">
+                    Social-signal lead — verify before outreach
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Created from a public post or video. No email address was supplied by the source
+                    and no marketing consent was captured. Find a real contact and confirm permission
+                    before sending email.
+                  </p>
+                </div>
+              )}
+
+              {(source?.sourceType === "meta_lead_form" ||
+                source?.sourceType === "linkedin_lead_form") && (
+                <div className="sm:col-span-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs leading-relaxed">
+                  <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                    Official lead form submission
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Contact details came from a signed official webhook. Marketing consent is recorded
+                    only when the form explicitly provided it.
                   </p>
                 </div>
               )}

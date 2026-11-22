@@ -201,6 +201,7 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
           status: "new",
           score: 0,
           consentMarketing: false,
+          verified: false,
           controlMode: "ai",
         },
       });

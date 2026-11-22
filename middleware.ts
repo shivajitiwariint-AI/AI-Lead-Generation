@@ -139,6 +139,8 @@ export const config = {
     "/profile/:path*",
     "/research",
     "/research/:path*",
+    "/social-signals",
+    "/social-signals/:path*",
     "/emails",
     "/emails/:path*",
     "/activity",

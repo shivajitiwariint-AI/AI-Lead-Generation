@@ -29,6 +29,8 @@ import {
   Activity as ActivityIcon,
   Database,
   KeyRound,
+  Video,
+  Link2,
 } from "lucide-react";
 
 type NavItem = { title: string; href: string; icon: React.ElementType };
@@ -50,6 +52,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "AI Outreach",
     items: [
       { title: "Research", href: "/research", icon: Search },
+      { title: "Social Signals", href: "/social-signals", icon: Video },
       { title: "Emails", href: "/emails", icon: Mail },
       { title: "Activity", href: "/activity", icon: ActivityIcon },
       { title: "Chatbots", href: "/chatbots", icon: LayoutGrid },
@@ -81,6 +84,7 @@ const superAdminGroups: { title: string; items: NavItem[] }[] = [
       { title: "AI Assignments", href: "/ai-assignments", icon: Target },
       { title: "AI Usage", href: "/ai-usage", icon: BarChart3 },
       { title: "Data Sources", href: "/admin/data-sources", icon: Database },
+      { title: "Social Integrations", href: "/admin/social-campaigns", icon: Link2 },
     ],
   },
   {
