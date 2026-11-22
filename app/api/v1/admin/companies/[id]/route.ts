@@ -169,6 +169,20 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     );
   }
 
+  // A company must be deactivated before it can be permanently deleted.
+  const status = String(tenant.status ?? "").toUpperCase();
+  if (status !== "INACTIVE" && status !== "SUSPENDED") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: "Deactivate the company first (set its status to Inactive) before deleting it.",
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   const name = tenant.name;
 
   await prisma.leadActivity.deleteMany({ where: { tenantId: params.id } });

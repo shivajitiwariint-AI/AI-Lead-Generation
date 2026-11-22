@@ -78,6 +78,7 @@ export default function AdminCompanyDetailPage() {
   const [resetTarget, setResetTarget] = useState("");
   const [resetting, setResetting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
 
   const load = async (opts?: { silent?: boolean }) => {
     try {
@@ -166,6 +167,26 @@ export default function AdminCompanyDetailPage() {
       toast.error(e.message || "Delete failed");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const deactivateCompany = async () => {
+    if (!confirm(`Deactivate "${data?.company?.name}"? You can delete it once it is inactive.`)) return;
+    setDeactivating(true);
+    try {
+      const res = await fetch(`/api/v1/admin/companies/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "INACTIVE" }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.error?.message || "Could not deactivate company");
+      toast.success("Company deactivated. Delete is now available.");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "Could not deactivate company");
+    } finally {
+      setDeactivating(false);
     }
   };
 
@@ -356,25 +377,39 @@ export default function AdminCompanyDetailPage() {
         );
       })()}
 
-      <Card className="border-destructive/40">
-        <CardHeader>
-          <CardTitle className="text-destructive">Danger zone</CardTitle>
-          <CardDescription>Irreversible actions</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Delete this company</p>
-              <p className="text-xs text-muted-foreground">
-                Removes the company and all its data. Cannot be undone.
-              </p>
-            </div>
-            <Button variant="destructive" onClick={deleteCompany} disabled={deleting}>
-              <Trash2 className="mr-1 h-4 w-4" /> {deleting ? "Deleting…" : "Delete company"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {(() => {
+        const savedStatus = String(company.status ?? "").toUpperCase();
+        const canDelete = savedStatus === "INACTIVE" || savedStatus === "SUSPENDED";
+        return (
+          <Card className="border-destructive/40">
+            <CardHeader>
+              <CardTitle className="text-destructive">Danger zone</CardTitle>
+              <CardDescription>Irreversible actions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Delete this company</p>
+                  <p className="text-xs text-muted-foreground">
+                    {canDelete
+                      ? "This company is deactivated. Deleting removes all its data and cannot be undone."
+                      : "Delete is available only after the company is deactivated (status Inactive). Save any status change in Company settings first."}
+                  </p>
+                </div>
+                {canDelete ? (
+                  <Button variant="destructive" onClick={deleteCompany} disabled={deleting}>
+                    <Trash2 className="mr-1 h-4 w-4" /> {deleting ? "Deleting…" : "Delete company"}
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={deactivateCompany} disabled={deactivating || saving}>
+                    {deactivating ? "Deactivating…" : "Deactivate company"}
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 }

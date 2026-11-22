@@ -70,7 +70,7 @@ export default function AdminCompaniesPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Total companies" value={companies.length} icon={<Building2 className="h-4 w-4" />} />
-        <StatCard label="Active" value={companies.filter((c) => c.status === "ACTIVE").length} icon={<CheckIcon />} />
+        <StatCard label="Active" value={companies.filter((c) => isActiveStatus(c.status)).length} icon={<CheckIcon />} />
         <StatCard label="Total leads" value={companies.reduce((a, c) => a + c.stats.leads, 0)} icon={<Target className="h-4 w-4" />} />
       </div>
 
@@ -87,7 +87,7 @@ export default function AdminCompaniesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-lg font-semibold">{c.name}</h3>
-                    <Badge variant={c.status === "ACTIVE" ? "default" : "outline"}>{c.status}</Badge>
+                    <Badge variant={isActiveStatus(c.status) ? "default" : "outline"}>{c.status}</Badge>
                     {c.onboardingCompleted ? (
                       <Badge variant="secondary">Onboarded</Badge>
                     ) : (
@@ -106,9 +106,9 @@ export default function AdminCompaniesPage() {
                 </Button>
                 <Button
                   size="sm"
-                  variant={c.status === "ACTIVE" ? "outline" : "default"}
+                  variant={isActiveStatus(c.status) ? "outline" : "default"}
                   onClick={async () => {
-                    const newStatus = c.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+                    const newStatus = isActiveStatus(c.status) ? "INACTIVE" : "ACTIVE";
                     const res = await fetch(`/api/v1/admin/companies/${c.id}`, {
                       method: "PATCH",
                       headers: { "Content-Type": "application/json" },
@@ -118,29 +118,33 @@ export default function AdminCompaniesPage() {
                       toast.success(`Company ${newStatus === "ACTIVE" ? "activated" : "deactivated"}`);
                       load();
                     } else {
-                      toast.error("Failed to update status");
+                      const d = await res.json().catch(() => null);
+                      toast.error(d?.error?.message || "Failed to update status");
                     }
                   }}
                 >
-                  {c.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                  {isActiveStatus(c.status) ? "Deactivate" : "Activate"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={async () => {
-                    if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
-                    const res = await fetch(`/api/v1/admin/companies/${c.id}`, { method: "DELETE" });
-                    if (res.ok) {
-                      toast.success("Company deleted");
-                      load();
-                    } else {
-                      const d = await res.json();
-                      toast.error(d?.error?.message || "Delete failed");
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {!isActiveStatus(c.status) && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    title="Delete company"
+                    onClick={async () => {
+                      if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return;
+                      const res = await fetch(`/api/v1/admin/companies/${c.id}`, { method: "DELETE" });
+                      if (res.ok) {
+                        toast.success("Company deleted");
+                        load();
+                      } else {
+                        const d = await res.json().catch(() => null);
+                        toast.error(d?.error?.message || "Delete failed");
+                      }
+                    }}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4" /> Delete
+                  </Button>
+                )}
               </div>
 
               <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-6">
@@ -161,6 +165,11 @@ export default function AdminCompaniesPage() {
       </div>
     </div>
   );
+}
+
+function isActiveStatus(status: string) {
+  const s = String(status ?? "").toUpperCase();
+  return s === "ACTIVE" || s === "TRIAL";
 }
 
 function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
