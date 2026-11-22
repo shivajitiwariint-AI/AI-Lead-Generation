@@ -85,6 +85,7 @@ export default function AiCredentialsPage() {
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
+  const [showCoverage, setShowCoverage] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -313,6 +314,15 @@ export default function AiCredentialsPage() {
                       setInputs((prev) => ({ ...prev, [provider.id]: e.target.value }))
                     }
                   />
+                  <p className="text-xs text-muted-foreground">
+                    {ownKey
+                      ? "Leave blank to keep the saved key."
+                      : status?.source === "environment"
+                        ? "Using the environment value. Paste a key here to override it."
+                        : status?.inherited
+                          ? "Saving a key here overrides the global value for this company."
+                          : "Paste a key or URL, then click Save key to enable this provider."}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -321,6 +331,11 @@ export default function AiCredentialsPage() {
                       checked={Boolean(status?.enabled && status.configured)}
                       onCheckedChange={() => status && toggle(provider, status)}
                       disabled={!ownKey || busy === provider.id}
+                      title={
+                        ownKey
+                          ? "Turn this saved key on or off"
+                          : "Save a key first to enable this toggle"
+                      }
                     />
                     <span className="text-xs text-muted-foreground">Enabled</span>
                   </div>
@@ -348,6 +363,11 @@ export default function AiCredentialsPage() {
                       size="sm"
                       onClick={() => save(provider)}
                       disabled={busy === provider.id || !(inputs[provider.id] || "").trim()}
+                      title={
+                        (inputs[provider.id] || "").trim()
+                          ? "Save this key"
+                          : "Enter a key or URL first"
+                      }
                     >
                       <Save className="mr-1 h-3.5 w-3.5" /> Save key
                     </Button>
@@ -364,12 +384,18 @@ export default function AiCredentialsPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Coverage by company</CardTitle>
-          <CardDescription>
-            Global keys are the fallback for every company. Company keys take precedence when enabled.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base">Coverage by company</CardTitle>
+            <CardDescription>
+              Read-only overview. Global keys are the fallback; company keys take precedence when enabled.
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowCoverage(!showCoverage)}>
+            {showCoverage ? "Hide matrix" : "Show matrix"}
+          </Button>
         </CardHeader>
+        {showCoverage && (
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead>
@@ -411,6 +437,7 @@ export default function AiCredentialsPage() {
             </tbody>
           </table>
         </CardContent>
+        )}
       </Card>
     </div>
   );
