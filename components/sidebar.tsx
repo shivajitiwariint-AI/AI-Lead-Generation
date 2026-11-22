@@ -27,6 +27,7 @@ import {
   Search,
   Mail,
   Activity as ActivityIcon,
+  Database,
 } from "lucide-react";
 
 type NavItem = { title: string; href: string; icon: React.ElementType };
@@ -77,6 +78,7 @@ const superAdminGroups: { title: string; items: NavItem[] }[] = [
       { title: "AI Models", href: "/ai-models", icon: Cpu },
       { title: "AI Assignments", href: "/ai-assignments", icon: Target },
       { title: "AI Usage", href: "/ai-usage", icon: BarChart3 },
+      { title: "Data Sources", href: "/admin/data-sources", icon: Database },
     ],
   },
   {

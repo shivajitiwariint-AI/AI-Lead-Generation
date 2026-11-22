@@ -458,6 +458,24 @@ model AICredential {
   @@index([providerId])
 }
 
+// Encrypted credentials for external discovery data sources (Google Places,
+// PageSpeed, Apollo, Hunter, social APIs). tenantId "platform" = shared key.
+model DataSourceCredential {
+  id                String   @id @default(uuid()) @db.Char(36)
+  tenantId          String   @default("platform") @db.Char(36)
+  providerKey       String   @db.VarChar(50)
+  encryptedSecret   String   @db.Text
+  encryptedSecondary String? @db.Text
+  keyVersion        Int      @default(1)
+  lastFour          String?  @db.VarChar(20)
+  enabled           Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, providerKey])
+  @@index([providerKey])
+}
+
 model AIModuleAssignment {
   id               String   @id @default(uuid()) @db.Char(36)
   tenantId         String?  @db.Char(36)

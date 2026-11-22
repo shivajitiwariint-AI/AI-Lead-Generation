@@ -4,7 +4,19 @@ import { recordAudit, recordLeadActivity } from "@/lib/activity";
 import { loadOffers } from "@/lib/ai/matching";
 import { getRealEstateConfig, buildResearchFragment } from "@/lib/ai/real-estate";
 import { getSoftwareConfig, buildResearchFragment as buildSoftwareResearchFragment } from "@/lib/ai/software-outreach";
+import { discoverRealCandidates } from "@/lib/ai/discovery";
+import { resolveDataSource } from "@/lib/data-sources";
 import type { Prisma } from "@prisma/client";
+
+function normalizeDomain(value?: string | null): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+    return url.hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return String(value).toLowerCase().replace(/^www\./i, "").split("/")[0] || null;
+  }
+}
 
 /**
  * Requirement 4: online research using approved sources.
@@ -15,12 +27,6 @@ export interface RunResearchOptions {
   tenantId: string;
   runId: string;
   actorId?: string | null;
-}
-
-function slugEmail(name: string, company: string): string {
-  const first = name.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "");
-  const dom = company.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 12) || "example";
-  return `${first}@${dom}.com`;
 }
 
 export async function executeResearchRun(opts: RunResearchOptions): Promise<{
@@ -63,71 +69,111 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
     const swConfig = getSoftwareConfig(profile as any);
     const fallbackPerSearch = swConfig.enabled ? swConfig.maxResults : reConfig.maxResults;
     const maxResults = Math.min(Math.max(Number(criteria.maxResults) || fallbackPerSearch || 5, 1), 20);
-    const prompt = [
-      `Company: ${profile?.description ?? "a business seeking new customers"}`,
-      `Industry focus: ${criteria.industry ?? profile?.industry ?? "general"}`,
-      `Location: ${criteria.location ?? "any"}`,
-      `Company size: ${criteria.companySize ?? "any"}`,
-      `Keywords: ${criteria.keywords ?? ""}`,
-      `Sales objectives: ${
-        Array.isArray(profile?.salesObjectives)
-          ? (profile!.salesObjectives as any[]).map((o) => o?.objective).filter(Boolean).join("; ")
-          : "not set"
-      }`,
-      `Offer catalog: ${offers.map((o) => o.name).join(", ") || "generic services"}`,
-      `Approved source: ${source?.name ?? "any"} (${source?.sourceType ?? "search"})`,
-      `User-provided target description: ${run.query ?? ""}`,
-      `Structured criteria: ${JSON.stringify(criteria)}`,
-      ...buildResearchFragment(reConfig),
-      ...buildSoftwareResearchFragment(swConfig),
-      `Return up to ${maxResults} realistic candidate companies matching the criteria, each with a contact name, title, email, phone, website, industry, location and a short reason they are a good fit.`,
-      `For real estate leads also include propertyInterest, budget, linkedin and sourcePlatform.`,
-      `For software leads also include website analysis (outdated UI, mobile, dashboard, performance, automation, inventory, appointment, ERP gaps) and LinkedIn.`,
-    ].join("\n");
-
-    const ai = await generateText({
-      moduleKey: "company_research",
-      tenantId,
-      prompt,
-      systemPrompt:
-        'You discover B2B leads. Respond with ONLY JSON: {"candidates":[{"name":string,"title":string,"company":string,"email":string,"phone":string,"website":string,"industry":string,"location":string,"reason":string,"propertyInterest":string,"budget":string,"linkedin":string,"sourcePlatform":string}]}',
-      maxTokens: 2000,
-      temperature: 0.5,
-    });
-
     let candidates: any[] = [];
-    try {
-      const parsed = JSON.parse(ai.text);
-      if (Array.isArray(parsed?.candidates)) candidates = parsed.candidates;
-    } catch {
-      const m = ai.text.match(/\{[\s\S]*\}/);
-      if (m) {
-        try {
-          const parsed = JSON.parse(m[0]);
-          if (Array.isArray(parsed?.candidates)) candidates = parsed.candidates;
-        } catch {
-          /* leave empty */
+    let liveSources: string[] = [];
+    let liveErrors: string[] = [];
+    let usedLive = false;
+    let mock = false;
+
+    // Prefer real data from configured official APIs. AI generation is only a
+    // fallback when no live source returned candidates for this query.
+    const placesKey = await resolveDataSource("google_places", tenantId).catch(() => null);
+    if (placesKey?.secret || swConfig.enabled) {
+      try {
+        const live = await discoverRealCandidates({
+          tenantId,
+          query: run.query ?? "",
+          location: criteria.location ?? null,
+          industry: criteria.industry ?? profile?.industry ?? null,
+          maxResults,
+        });
+        liveErrors = live.errors;
+        if (live.candidates.length > 0) {
+          candidates = live.candidates;
+          liveSources = live.sources;
+          usedLive = true;
+        }
+      } catch (e: any) {
+        liveErrors.push(e.message);
+      }
+    }
+
+    if (!usedLive) {
+      const prompt = [
+        `Company: ${profile?.description ?? "a business seeking new customers"}`,
+        `Industry focus: ${criteria.industry ?? profile?.industry ?? "general"}`,
+        `Location: ${criteria.location ?? "any"}`,
+        `Company size: ${criteria.companySize ?? "any"}`,
+        `Keywords: ${criteria.keywords ?? ""}`,
+        `Sales objectives: ${
+          Array.isArray(profile?.salesObjectives)
+            ? (profile!.salesObjectives as any[]).map((o) => o?.objective).filter(Boolean).join("; ")
+            : "not set"
+        }`,
+        `Offer catalog: ${offers.map((o) => o.name).join(", ") || "generic services"}`,
+        `Approved source: ${source?.name ?? "any"} (${source?.sourceType ?? "search"})`,
+        `User-provided target description: ${run.query ?? ""}`,
+        `Structured criteria: ${JSON.stringify(criteria)}`,
+        ...buildResearchFragment(reConfig),
+        ...buildSoftwareResearchFragment(swConfig),
+        `Return up to ${maxResults} realistic candidate companies matching the criteria, each with a contact name, title, email, phone, website, industry, location and a short reason they are a good fit.`,
+        `For real estate leads also include propertyInterest, budget, linkedin and sourcePlatform.`,
+        `For software leads also include website analysis (outdated UI, mobile, dashboard, performance, automation, inventory, appointment, ERP gaps) and LinkedIn.`,
+      ].join("\n");
+
+      const ai = await generateText({
+        moduleKey: "company_research",
+        tenantId,
+        prompt,
+        systemPrompt:
+          'You discover B2B leads. Respond with ONLY JSON: {"candidates":[{"name":string,"title":string,"company":string,"email":string,"phone":string,"website":string,"industry":string,"location":string,"reason":string,"propertyInterest":string,"budget":string,"linkedin":string,"sourcePlatform":string}]}',
+        maxTokens: 2000,
+        temperature: 0.5,
+      });
+      mock = ai.mock;
+
+      try {
+        const parsed = JSON.parse(ai.text);
+        if (Array.isArray(parsed?.candidates)) candidates = parsed.candidates;
+      } catch {
+        const m = ai.text.match(/\{[\s\S]*\}/);
+        if (m) {
+          try {
+            const parsed = JSON.parse(m[0]);
+            if (Array.isArray(parsed?.candidates)) candidates = parsed.candidates;
+          } catch {
+            /* leave empty */
+          }
         }
       }
     }
 
-    // De-dup by email/phone against existing tenant leads
+    // De-dup by email, phone, website or company against existing tenant leads.
     const existing = await prisma.lead.findMany({
       where: { tenantId },
-      select: { email: true, phone: true },
+      select: { email: true, phone: true, website: true, company: true },
     });
     const existingEmails = new Set(existing.map((l) => (l.email || "").toLowerCase()).filter(Boolean));
     const existingPhones = new Set(existing.map((l) => (l.phone || "").replace(/\D/g, "")).filter(Boolean));
+    const existingWebsites = new Set(existing.map((l) => normalizeDomain(l.website)).filter(Boolean));
+    const existingCompanies = new Set(
+      existing.map((l) => String(l.company || "").toLowerCase().replace(/\s*\([^)]*\)$/, "").trim()).filter(Boolean)
+    );
 
     let createdCount = 0;
     const createdLeadIds: string[] = [];
 
     for (const c of candidates) {
       if (!c?.name || !c?.company) continue;
-      const email = c.email || slugEmail(c.name, c.company);
+      // Never invent an email address for a real discovered business.
+      const email = c.email ? String(c.email).slice(0, 255) : null;
       if (email && existingEmails.has(email.toLowerCase())) continue;
       const phoneDigits = (c.phone || "").replace(/\D/g, "");
       if (phoneDigits && existingPhones.has(phoneDigits)) continue;
+      const domain = normalizeDomain(c.website);
+      if (domain && existingWebsites.has(domain)) continue;
+      const companyKey = String(c.company).toLowerCase().trim();
+      if (existingCompanies.has(companyKey)) continue;
 
       const requirement = [
         c.reason ? String(c.reason).slice(0, 250) : "",
@@ -135,6 +181,7 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
         c.budget ? `Budget: ${String(c.budget).slice(0, 80)}` : "",
         c.linkedin ? `LinkedIn: ${String(c.linkedin).slice(0, 150)}` : "",
         c.websiteAnalysis ? `Website: ${String(c.websiteAnalysis).slice(0, 150)}` : "",
+        c.sourceUrl ? `Source: ${String(c.sourceUrl).slice(0, 150)}` : "",
       ]
         .filter(Boolean)
         .join(" | ")
@@ -174,8 +221,16 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
             budget: c.budget ?? null,
             linkedin: c.linkedin ?? null,
             websiteAnalysis: c.websiteAnalysis ?? null,
-            confidence: c.sourceConfidence ?? null,
-            mock: ai.mock,
+            websiteSignals: c.websiteSignals ?? null,
+            performanceScore: c.performanceScore ?? null,
+            sourceUrl: c.sourceUrl ?? null,
+            externalId: c.externalId ?? null,
+            discoveredAt: new Date().toISOString(),
+            // External discoveries stay unverified until a human checks them.
+            verified: false,
+            confidence: c.confidence ?? c.sourceConfidence ?? null,
+            live: usedLive,
+            mock,
           }),
         },
       });
@@ -185,10 +240,13 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
         leadId: lead.id,
         actorId: opts.actorId ?? null,
         activityType: "lead_created",
-        payload: { source: "research", runId, mock: ai.mock },
+        payload: { source: "research", runId, mock, live: usedLive },
       });
 
-      existingEmails.add(email.toLowerCase());
+      if (email) existingEmails.add(email.toLowerCase());
+      if (phoneDigits) existingPhones.add(phoneDigits);
+      if (domain) existingWebsites.add(domain);
+      existingCompanies.add(companyKey);
       createdLeadIds.push(lead.id);
       createdCount++;
     }
@@ -212,7 +270,15 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
       category: "research",
       targetType: "research_run",
       targetId: runId,
-      metadata: { found: candidates.length, created: createdCount, leadIds: createdLeadIds, mock: ai.mock },
+      metadata: {
+        found: candidates.length,
+        created: createdCount,
+        leadIds: createdLeadIds,
+        mock,
+        live: usedLive,
+        liveSources,
+        liveErrors,
+      },
     });
 
     return { runId, status: "completed", foundCount: candidates.length, createdCount };

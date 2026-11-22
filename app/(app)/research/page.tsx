@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Play, Globe, CheckCircle2 } from "lucide-react";
+import { Plus, Play, Globe, CheckCircle2, Database } from "lucide-react";
 import { SearchScheduleCard } from "@/components/search-schedule-card";
 import { RealEstateCard } from "@/components/real-estate-card";
 import { SoftwareOutreachCard } from "@/components/software-outreach-card";
@@ -55,16 +55,19 @@ export default function ResearchPage() {
     sourceId: "",
   });
   const [running, setRunning] = useState(false);
+  const [liveSources, setLiveSources] = useState<any[]>([]);
 
   const load = async () => {
-    const [s, r, p] = await Promise.all([
+    const [s, r, p, ds] = await Promise.all([
       fetch("/api/v1/research/sources").then((x) => x.json()),
       fetch("/api/v1/research/runs").then((x) => x.json()),
       fetch("/api/v1/company-profile").then((x) => x.json()).catch(() => null),
+      fetch("/api/v1/data-sources").then((x) => x.json()).catch(() => []),
     ]);
     setSources(Array.isArray(s) ? s : s?.data ?? []);
     setRuns(Array.isArray(r) ? r : r?.data ?? []);
     setProfile(p);
+    setLiveSources(Array.isArray(ds) ? ds : []);
   };
 
   useEffect(() => {
@@ -136,6 +139,29 @@ export default function ResearchPage() {
           Discover potential customers using approved sources. Only approved sources are used; every run is audited.
         </p>
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Database className="h-4 w-4 text-primary" /> Real data sources
+          </CardTitle>
+          <CardDescription>Official APIs are used before any AI-generated candidates.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {liveSources.map((s) => (
+              <Badge key={s.key} variant={s.configured && s.enabled ? "default" : "outline"}>
+                {s.label} · {s.configured ? (s.enabled ? "Connected" : "Disabled") : "Not configured"}
+              </Badge>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {liveSources.some((s) => s.configured && s.enabled)
+              ? "Discovered businesses are checked for website problems, enriched with Apollo/Hunter when available, and saved as unverified leads with no marketing consent."
+              : "No live keys configured yet — discovery falls back to AI-generated candidates. A platform admin can add keys on the Data Sources page."}
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
