@@ -48,10 +48,19 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search") || "";
   const status = searchParams.get("status") || "";
   const source = searchParams.get("source") || "";
+  const minRelevance = parseInt(searchParams.get("minRelevance") || "0", 10);
+  const minQuality = parseInt(searchParams.get("minQuality") || "0", 10);
+  const emailVerified = searchParams.get("emailVerified") === "true";
+  const phoneVerified = searchParams.get("phoneVerified") === "true";
+  const sort = searchParams.get("sort") || "recent"; // recent | relevance | quality | score
 
   const where: any = {
     tenantId: ctx.tenantId!,
   };
+  if (minRelevance > 0) where.relevanceScore = { gte: minRelevance };
+  if (minQuality > 0) where.dataQualityScore = { gte: minQuality };
+  if (emailVerified) where.emailVerified = true;
+  if (phoneVerified) where.phoneVerified = true;
 
   if (search) {
     // MySQL/TiDB string comparisons are case-insensitive with the default
@@ -72,10 +81,16 @@ export async function GET(req: NextRequest) {
     where.id = { in: srcLeads.map((s) => s.leadId) };
   }
 
+  const orderBy: any =
+    sort === "relevance" ? { relevanceScore: "desc" } :
+    sort === "quality" ? { dataQualityScore: "desc" } :
+    sort === "score" ? { score: "desc" } :
+    { createdAt: "desc" };
+
   const [leads, total] = await Promise.all([
     prisma.lead.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
     }),

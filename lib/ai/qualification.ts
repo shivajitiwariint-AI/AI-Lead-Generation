@@ -194,6 +194,14 @@ export async function qualifyAndMatchLead(
     ? String(parsed!.confidence)
     : fallback.confidence;
 
+  // Blend the quality-first scores computed during discovery into the final
+  // qualification. A lead that is genuinely relevant + well verified scores
+  // higher than one that merely looks good in the AI prompt.
+  const preQualRelevance = clampScore((lead as any).relevanceScore, 0);
+  const preQualQuality = clampScore((lead as any).dataQualityScore, 0);
+  const qualityAdjustedFit = Math.round(fitScore * 0.7 + preQualRelevance * 0.3);
+  const qualityAdjustedCompleteness = Math.round(completenessScore * 0.7 + preQualQuality * 0.3);
+
   // Requirement 5: deterministic offer matching (+ AI-suggested matches if given)
   const { matchScore, matches } = matchOffers(
     {
@@ -227,7 +235,8 @@ export async function qualifyAndMatchLead(
     : matchScore;
 
   const totalScore = Math.round(
-    fitScore * 0.3 + intentScore * 0.25 + urgencyScore * 0.2 + completenessScore * 0.15 + 10
+    qualityAdjustedFit * 0.3 + intentScore * 0.25 + urgencyScore * 0.2 +
+    qualityAdjustedCompleteness * 0.15 + 10
   );
   const band: "Hot" | "Warm" | "Cold" =
     totalScore >= 80 ? "Hot" : totalScore >= 50 ? "Warm" : "Cold";
@@ -243,10 +252,10 @@ export async function qualifyAndMatchLead(
       tenantId,
       leadId,
       campaignId: opts.campaignId || "",
-      fitScore,
+      fitScore: qualityAdjustedFit,
       intentScore,
       urgencyScore,
-      completenessScore,
+      completenessScore: qualityAdjustedCompleteness,
       summary: aiSummary,
       evidence: {
         missingAnswers: [
@@ -255,6 +264,8 @@ export async function qualifyAndMatchLead(
           ...(!lead.company ? ["Company name"] : []),
         ],
         heuristic: fallback,
+        preQualRelevance,
+        preQualQuality,
         matchedOfferCount: matchedOffers.length,
         generatedBy: ai.mock ? "local_engine" : "provider",
       } as Prisma.InputJsonValue,
@@ -284,13 +295,15 @@ export async function qualifyAndMatchLead(
 
   const payload = {
     qualificationId: qualification.id,
-    fitScore,
+    fitScore: qualityAdjustedFit,
     intentScore,
     urgencyScore,
     band,
     totalScore,
     matchScore: effectiveMatchScore,
     matchedOffers: matchedOffers.map((m) => m.offer),
+    relevanceScore: preQualRelevance,
+    dataQualityScore: preQualQuality,
     model: ai.modelId,
     mock: ai.mock,
   };
@@ -319,10 +332,10 @@ export async function qualifyAndMatchLead(
     qualificationId: qualification.id,
     totalScore,
     band,
-    fitScore,
+    fitScore: qualityAdjustedFit,
     intentScore,
     urgencyScore,
-    completenessScore,
+    completenessScore: qualityAdjustedCompleteness,
     summary: aiSummary,
     nextAction,
     confidence,

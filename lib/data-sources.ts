@@ -107,6 +107,28 @@ export const DATA_SOURCE_PROVIDERS = [
     secondaryEnv: null,
     docs: "https://developers.tiktok.com/doc/display-api-overview",
   },
+  {
+    key: "email_verifier",
+    label: "Email Verifier (Hunter.io)",
+    category: "Contact verification",
+    description: "Verify that an email address is deliverable and not disposable.",
+    secretLabel: "Hunter.io API key",
+    secondaryLabel: null,
+    env: "HUNTER_API_KEY",
+    secondaryEnv: null,
+    docs: "https://hunter.io/api-documentation/v2",
+  },
+  {
+    key: "phone_verifier",
+    label: "Phone Verifier",
+    category: "Contact verification",
+    description: "Validate and format phone numbers in E.164 format.",
+    secretLabel: "Phone verification API key (optional)",
+    secondaryLabel: null,
+    env: "PHONE_VERIFIER_API_KEY",
+    secondaryEnv: null,
+    docs: "https://example.com/phone-verifier-api",
+  },
 ] as const;
 
 export type DataSourceProviderDefinition = (typeof DATA_SOURCE_PROVIDERS)[number];

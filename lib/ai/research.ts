@@ -5,6 +5,9 @@ import { loadOffers } from "@/lib/ai/matching";
 import { getRealEstateConfig, buildResearchFragment } from "@/lib/ai/real-estate";
 import { getSoftwareConfig, buildResearchFragment as buildSoftwareResearchFragment } from "@/lib/ai/software-outreach";
 import { discoverRealCandidates } from "@/lib/ai/discovery";
+import { verifyEmail } from "@/lib/ai/email-verifier";
+import { verifyPhone } from "@/lib/ai/phone-verifier";
+import { rankCandidates, type QualityConfig } from "@/lib/ai/lead-quality";
 import { resolveDataSource } from "@/lib/data-sources";
 import type { Prisma } from "@prisma/client";
 
@@ -69,6 +72,15 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
     const swConfig = getSoftwareConfig(profile as any);
     const fallbackPerSearch = swConfig.enabled ? swConfig.maxResults : reConfig.maxResults;
     const maxResults = Math.min(Math.max(Number(criteria.maxResults) || fallbackPerSearch || 5, 1), 20);
+    // Minimum relevance gate: only genuinely relevant businesses become leads.
+    const minRelevance = Math.min(Math.max(Number(criteria.minRelevance) || 20, 0), 100);
+    const qualityConfig: QualityConfig = {
+      industry: criteria.industry ?? profile?.industry ?? null,
+      keywords: criteria.keywords ?? null,
+      location: criteria.location ?? null,
+      offers,
+      websiteReachable: false,
+    };
     let candidates: any[] = [];
     let liveSources: string[] = [];
     let liveErrors: string[] = [];
@@ -160,20 +172,99 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
       existing.map((l) => String(l.company || "").toLowerCase().replace(/\s*\([^)]*\)$/, "").trim()).filter(Boolean)
     );
 
-    let createdCount = 0;
-    const createdLeadIds: string[] = [];
+    // ---- PASS 1: verify + dedupe + website status (data quality gate) ----
+    type Prepared = {
+      c: any;
+      email: string | null;
+      phoneValue: string | null;
+      emailVerified: boolean;
+      phoneVerified: boolean;
+      domain: string | null;
+      companyKey: string;
+    };
+    const prepared: Prepared[] = [];
 
     for (const c of candidates) {
       if (!c?.name || !c?.company) continue;
-      // Never invent an email address for a real discovered business.
+
+      // --- Email verification (domain exists, not disposable, deliverable) ---
       const email = c.email ? String(c.email).slice(0, 255) : null;
-      if (email && existingEmails.has(email.toLowerCase())) continue;
-      const phoneDigits = (c.phone || "").replace(/\D/g, "");
-      if (phoneDigits && existingPhones.has(phoneDigits)) continue;
+      let emailVerified = false;
+      if (email) {
+        if (existingEmails.has(email.toLowerCase())) continue;
+        const emailResult = await verifyEmail(email, tenantId);
+        if (!emailResult.valid) continue; // skip disposable / undeliverable
+        emailVerified = Boolean(emailResult.deliverable) || emailResult.confidence >= 0.6;
+      }
+
+      // --- Phone verification (format + reachable where supported) ---
+      let phoneVerified = false;
+      let phoneValue: string | null = null;
+      if (c.phone) {
+        const phoneDigits = String(c.phone).replace(/\D/g, "");
+        if (phoneDigits && existingPhones.has(phoneDigits)) continue;
+        const phoneResult = await verifyPhone(String(c.phone), tenantId);
+        if (!phoneResult.valid) continue;
+        phoneValue = phoneResult.e164 ?? String(c.phone).slice(0, 50);
+        phoneVerified = phoneResult.verified;
+      }
+
+      // --- Website status check ---
+      let websiteReachable = false;
       const domain = normalizeDomain(c.website);
+      if (c.website) {
+        try {
+          const res = await fetch(/^https?:\/\//i.test(c.website) ? c.website : `https://${c.website}`, {
+            method: "HEAD",
+            signal: AbortSignal.timeout(6000),
+            redirect: "follow",
+          });
+          websiteReachable = res.ok;
+        } catch {
+          websiteReachable = false;
+        }
+      }
+
+      // --- Duplicate removal against current batch + existing leads ---
       if (domain && existingWebsites.has(domain)) continue;
       const companyKey = String(c.company).toLowerCase().trim();
       if (existingCompanies.has(companyKey)) continue;
+
+      prepared.push({
+        c: { ...c, emailVerified, phoneVerified, websiteSignals: c.websiteSignals ?? [] },
+        email,
+        phoneValue,
+        emailVerified,
+        phoneVerified,
+        domain,
+        companyKey,
+      });
+      // Mark so the rest of this batch is also de-duplicated against it.
+      if (email) existingEmails.add(email.toLowerCase());
+      if (phoneValue) existingPhones.add(phoneValue.replace(/\D/g, ""));
+      if (domain) existingWebsites.add(domain);
+      existingCompanies.add(companyKey);
+      qualityConfig.websiteReachable = qualityConfig.websiteReachable || websiteReachable;
+    }
+
+    // ---- PASS 2: rank by relevance then quality; keep only the best ----
+    const ranked = rankCandidates(prepared.map((p) => p.c), qualityConfig, {
+      minRelevance,
+      limit: maxResults,
+    });
+
+    let createdCount = 0;
+    const createdLeadIds: string[] = [];
+
+    for (const rankedItem of ranked) {
+      const c = rankedItem;
+      const p = prepared.find((x) => x.c === c || x.c.company === c.company && x.c.name === c.name);
+      const email = p?.email ?? (c.email ? String(c.email).slice(0, 255) : null);
+      const phoneValue = p?.phoneValue ?? null;
+      const emailVerified = p?.emailVerified ?? false;
+      const phoneVerified = p?.phoneVerified ?? false;
+      const domain = p?.domain ?? normalizeDomain(c.website);
+      const companyKey = p?.companyKey ?? String(c.company).toLowerCase().trim();
 
       const requirement = [
         c.reason ? String(c.reason).slice(0, 250) : "",
@@ -191,8 +282,8 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
         data: {
           tenantId,
           name: String(c.name).slice(0, 200),
-          email: email?.slice(0, 255) || null,
-          phone: c.phone ? String(c.phone).slice(0, 50) : null,
+          email: email || null,
+          phone: phoneValue,
           company: c.title ? `${String(c.company).slice(0, 180)} (${String(c.title).slice(0, 40)})` : String(c.company).slice(0, 200),
           website: c.website ? String(c.website).slice(0, 500) : null,
           industry: c.industry ? String(c.industry).slice(0, 100) : profile?.industry ?? null,
@@ -202,6 +293,10 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
           score: 0,
           consentMarketing: false,
           verified: false,
+          emailVerified,
+          phoneVerified,
+          relevanceScore: c.quality.relevanceScore,
+          dataQualityScore: c.quality.dataQualityScore,
           controlMode: "ai",
         },
       });
@@ -232,6 +327,11 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
             confidence: c.confidence ?? c.sourceConfidence ?? null,
             live: usedLive,
             mock,
+            relevanceScore: c.quality.relevanceScore,
+            dataQualityScore: c.quality.dataQualityScore,
+            qualityReasons: c.quality.reasons,
+            emailVerified,
+            phoneVerified,
           }),
         },
       });
@@ -241,13 +341,13 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
         leadId: lead.id,
         actorId: opts.actorId ?? null,
         activityType: "lead_created",
-        payload: { source: "research", runId, mock, live: usedLive },
+        payload: {
+          source: "research", runId, mock, live: usedLive,
+          relevanceScore: c.quality.relevanceScore,
+          dataQualityScore: c.quality.dataQualityScore,
+        },
       });
 
-      if (email) existingEmails.add(email.toLowerCase());
-      if (phoneDigits) existingPhones.add(phoneDigits);
-      if (domain) existingWebsites.add(domain);
-      existingCompanies.add(companyKey);
       createdLeadIds.push(lead.id);
       createdCount++;
     }
@@ -256,7 +356,7 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
       where: { id: runId },
       data: {
         status: "completed",
-        results: candidates as unknown as Prisma.InputJsonValue,
+        results: ranked as unknown as Prisma.InputJsonValue,
         foundCount: candidates.length,
         createdCount,
         completedAt: new Date(),
@@ -273,8 +373,10 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
       targetId: runId,
       metadata: {
         found: candidates.length,
+        qualified: ranked.length,
         created: createdCount,
         leadIds: createdLeadIds,
+        minRelevance,
         mock,
         live: usedLive,
         liveSources,

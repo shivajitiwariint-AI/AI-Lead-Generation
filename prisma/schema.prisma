@@ -234,6 +234,12 @@ model Lead {
   consentMethod       String?    @db.VarChar(100)
   // false until a human or a first-party source confirms the contact details.
   verified            Boolean    @default(false)
+  emailVerified       Boolean    @default(false)
+  phoneVerified       Boolean    @default(false)
+  // Quality-first generation: how relevant the lead is to the customer's
+  // services and how complete/verified its data is (both 0-100).
+  relevanceScore      Int        @default(0)
+  dataQualityScore    Int        @default(0)
   lastContactedAt     DateTime?
 
   // Manual takeover (requirement 8): "ai" | "manual"
