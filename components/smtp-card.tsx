@@ -63,7 +63,10 @@ export function SmtpCard({ tenantId }: { tenantId?: string }) {
   }, [basePath]);
 
   const set = (k: keyof typeof form) => (e: any) => {
-    const v = e?.target?.checked ?? e?.target?.value ?? e;
+    // Text inputs: always read .value. (Do NOT read .checked here — it is a
+    // boolean and is `false` on text inputs, which was overwriting every
+    // typed value with `false`.) Switch toggles use onCheckedChange directly.
+    const v = e?.target?.value ?? e;
     setForm((p) => ({ ...p, [k]: v }));
   };
 

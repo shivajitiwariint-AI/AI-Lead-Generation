@@ -11,6 +11,7 @@ import {
   handleBounceWebhook,
   formatFromAddress,
   getSystemSmtpSettings,
+  getCompanySmtpSettings,
 } from "@/lib/smtp";
 import { toNodemailerAttachments, toResendAttachments } from "@/lib/email-attachments";
 
@@ -374,22 +375,26 @@ export async function sendEmail(params: {
   const fileAttachments = toNodemailerAttachments(storedAttachments);
   const resendAttachments = toResendAttachments(storedAttachments);
 
-  // 1) Per‑company SMTP config
+  // 1) Per‑company SMTP config — send from the company's own mailbox.
   const smtpConfig = await prisma.smtpConfig.findUnique({ where: { tenantId } });
-  if (smtpConfig?.enabled) {
+  const companySmtp = smtpConfig?.enabled
+    ? await getCompanySmtpSettings(tenantId).catch(() => null)
+    : null;
+  if (companySmtp) {
     try {
       const result = await sendWithBounceTracking({
         to: message.toAddress,
         subject: message.subject || "(no subject)",
         text: message.body || "",
         tenantId,
+        smtp: companySmtp,
         attachments: fileAttachments,
       });
       if (!result.success) {
         // Hard bounce – already stored in SuppressionEntry by sendWithBounceTracking
         simulated = false;
         providerUsed = "smtp";
-        fromAddress = formatFromAddress(smtpConfig.fromEmail, smtpConfig.fromName);
+        fromAddress = formatFromAddress(companySmtp.fromEmail, companySmtp.fromName);
         await prisma.message.update({
           where: { id: message.id },
           data: { status: "bounced", meta: { ...(message.meta as object ?? {}), bounceReason: result.bounceReason } },
@@ -398,7 +403,7 @@ export async function sendEmail(params: {
       }
       simulated = false;
       providerUsed = "smtp";
-      fromAddress = formatFromAddress(smtpConfig.fromEmail, smtpConfig.fromName);
+      fromAddress = formatFromAddress(companySmtp.fromEmail, companySmtp.fromName);
       sent = true;
     } catch (err) {
       console.error("[email] SMTP failed:", (err as Error).message);

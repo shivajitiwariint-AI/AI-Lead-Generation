@@ -64,6 +64,10 @@ function createTransport(settings: SystemSmtpSettings): Transporter {
     secure: settings.secure,
     requireTLS: !settings.secure && settings.port === 587 ? true : undefined,
     auth: { user: settings.username, pass: settings.password },
+    // Fail fast instead of hanging (e.g. on blocked ports) so callers never stall.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 30_000,
   });
 }
 
@@ -73,8 +77,11 @@ export function getSystemSmtpTransport(): Transporter | null {
   return settings ? createTransport(settings) : null;
 }
 
-/** Transport for a company's own SMTP configuration (no env fallback). */
-export async function getSmtpTransport(tenantId: string, passwordPlain?: string) {
+/** Resolve a company's own SMTP config into shared settings (no env fallback). */
+export async function getCompanySmtpSettings(
+  tenantId: string,
+  passwordPlain?: string
+): Promise<SystemSmtpSettings | null> {
   const config = await prisma.smtpConfig.findUnique({ where: { tenantId } });
   if (!config || !config.enabled) return null;
   let password = passwordPlain;
@@ -85,12 +92,21 @@ export async function getSmtpTransport(tenantId: string, passwordPlain?: string)
       return null;
     }
   }
-  return nodemailer.createTransport({
+  return {
     host: config.host,
     port: config.port,
     secure: config.secure,
-    auth: { user: config.username, pass: password ?? "" },
-  });
+    username: config.username,
+    password: password ?? "",
+    fromEmail: config.fromEmail,
+    fromName: config.fromName,
+  };
+}
+
+/** Transport for a company's own SMTP configuration (no env fallback). */
+export async function getSmtpTransport(tenantId: string, passwordPlain?: string) {
+  const settings = await getCompanySmtpSettings(tenantId, passwordPlain);
+  return settings ? createTransport(settings) : null;
 }
 
 export async function verifySmtp(tenantId: string, passwordPlain?: string) {
