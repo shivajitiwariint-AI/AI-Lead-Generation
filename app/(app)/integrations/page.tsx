@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SmtpCard } from "@/components/smtp-card";
-import { MessageCircle, Globe, Webhook, Bot, Plug } from "lucide-react";
+import { DataSourcesCard } from "@/components/data-sources-card";
+import { AiCredentialsCard } from "@/components/ai-credentials-card";
+import { MessageCircle, Globe, Webhook, Bot, Plug, Database, KeyRound } from "lucide-react";
 import Link from "next/link";
 
 type PlannedIntegration = {
@@ -58,6 +60,36 @@ export default function IntegrationsPage() {
       </div>
 
       <SmtpCard />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Database className="h-4 w-4 text-muted-foreground" /> Data source keys
+          </CardTitle>
+          <CardDescription>
+            Override the global discovery and enrichment keys for this workspace. Companies without
+            their own key inherit the global one.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DataSourcesCard />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="h-4 w-4 text-muted-foreground" /> LLM API keys
+          </CardTitle>
+          <CardDescription>
+            Override the global LLM provider keys for this workspace. Companies without their own key
+            inherit the global one.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AiCredentialsCard />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

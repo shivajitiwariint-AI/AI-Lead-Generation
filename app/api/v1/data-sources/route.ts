@@ -14,14 +14,7 @@ export async function GET() {
   }
 
   const all = await listDataSourceStatus(ctx.tenantId);
-  return NextResponse.json(
-    all.map((s) => ({
-      key: s.key,
-      label: s.label,
-      category: s.category,
-      configured: s.configured,
-      enabled: s.enabled,
-      source: s.source,
-    }))
-  );
+  // Return the full status (including masked keys) so company-facing cards can
+  // render the same detail as the admin matrix, scoped to this workspace.
+  return NextResponse.json(all);
 }
