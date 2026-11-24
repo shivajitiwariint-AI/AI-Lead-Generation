@@ -113,7 +113,12 @@ export default function ResearchPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message || "Run failed");
-      toast.success(`Discovered ${data.result?.foundCount ?? 0}, created ${data.result?.createdCount ?? 0} lead(s)`);
+      const result = data.result ?? {};
+      if (result.liveErrors && result.liveErrors.length) {
+        toast.error(`Live discovery failed: ${result.liveErrors.join(" · ")}`);
+      } else {
+        toast.success(`Discovered ${result.foundCount ?? 0}, created ${result.createdCount ?? 0} lead(s)`);
+      }
       setDiscover({ description: "", industry: "", location: "", companySize: "", maxResults: "5", sourceId: "" });
       load();
     } catch (e: any) {

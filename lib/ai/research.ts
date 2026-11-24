@@ -38,6 +38,7 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
   foundCount: number;
   createdCount: number;
   error?: string;
+  liveErrors?: string[];
 }> {
   const { tenantId, runId } = opts;
 
@@ -360,6 +361,12 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
         foundCount: candidates.length,
         createdCount,
         completedAt: new Date(),
+        // Surface live-source failures so the UI can explain why no leads were
+        // created (e.g. Google Places API not enabled) instead of a bare 0.
+        error:
+          createdCount === 0 && liveErrors.length
+            ? liveErrors.join(" · ")
+            : null,
       },
     });
 
@@ -384,7 +391,7 @@ export async function executeResearchRun(opts: RunResearchOptions): Promise<{
       },
     });
 
-    return { runId, status: "completed", foundCount: candidates.length, createdCount };
+    return { runId, status: "completed", foundCount: candidates.length, createdCount, liveErrors };
   } catch (err) {
     const e = err as Error;
     console.error("[research] FAILED:", e.stack || e.message);

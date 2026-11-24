@@ -1,4 +1,4 @@
-import { resolveDataSource } from "@/lib/data-sources";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 
 export interface PhoneVerificationResult {
   phone: string;
@@ -12,24 +12,68 @@ export interface PhoneVerificationResult {
   reason: string;
 }
 
-/** Minimal E.164 format check when no provider is configured. */
+function defaultCountry(): CountryCode {
+  const configured = (process.env.DEFAULT_PHONE_COUNTRY || "IN").toUpperCase();
+  // libphonenumber-js validates the country code at parse time; fall back to IN
+  // if an unsupported value was configured.
+  return /^[A-Z]{2}$/.test(configured) ? (configured as CountryCode) : "IN";
+}
+
+/**
+ * Real phone-number validation using Google's libphonenumber metadata.
+ *
+ * This checks that the number parses, the country calling code is real, and
+ * the national number has a possible length for that country. It does NOT
+ * prove the line is allocated or reachable — that requires a paid carrier
+ * lookup provider (Twilio Lookup, Numverify, etc.). `verified` therefore
+ * stays false, and the reason explains the distinction.
+ */
 function formatCheck(phone: string): {
   valid: boolean;
   e164: string | null;
+  country: string | null;
+  lineType: string | null;
+  confidence: number;
   reason: string;
 } {
-  const digits = phone.replace(/\D/g, "");
-  // Must be between 7 and 15 digits (E.164 max is 15).
-  if (digits.length < 7 || digits.length > 15) {
-    return { valid: false, e164: null, reason: "Invalid phone number length" };
+  const parsed = parsePhoneNumberFromString(phone.trim(), defaultCountry());
+  if (!parsed) {
+    return {
+      valid: false,
+      e164: null,
+      country: null,
+      lineType: null,
+      confidence: 0,
+      reason: "Not a recognisable phone number",
+    };
   }
-  const e164 = `+${digits}`;
-  return { valid: true, e164, reason: "Format looks valid" };
+  if (!parsed.isPossible()) {
+    return {
+      valid: false,
+      e164: null,
+      country: parsed.country ?? null,
+      lineType: null,
+      confidence: 0,
+      reason: `Invalid length for ${parsed.country ?? "the country calling code"}`,
+    };
+  }
+
+  const exact = parsed.isValid();
+  return {
+    valid: true,
+    e164: parsed.number,
+    country: parsed.country ?? null,
+    lineType: parsed.getType() ?? null,
+    confidence: exact ? 0.75 : 0.55,
+    reason: exact
+      ? "Valid number for its country"
+      : "Format is possible; carrier allocation not confirmed",
+  };
 }
 
 export async function verifyPhone(
   phone: string | null | undefined,
-  tenantId?: string | null
+  _tenantId?: string | null
 ): Promise<PhoneVerificationResult> {
   if (!phone) {
     return {
@@ -51,7 +95,7 @@ export async function verifyPhone(
       phone,
       valid: false,
       e164: null,
-      country: null,
+      country: fmt.country,
       carrier: null,
       lineType: null,
       verified: false,
@@ -60,46 +104,15 @@ export async function verifyPhone(
     };
   }
 
-  // Try a phone verification provider when configured.
-  const source = await resolveDataSource("phone_verifier", tenantId ?? null).catch(() => null);
-  if (source?.secret && fmt.e164) {
-    try {
-      const res = await fetch(
-        `https://api.example.com/v1/phones/${encodeURIComponent(fmt.e164)}`,
-        {
-          headers: { Authorization: `Bearer ${source.secret}` },
-          signal: AbortSignal.timeout(10000),
-        }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        return {
-          phone,
-          valid: data.valid ?? false,
-          e164: fmt.e164 ?? null,
-          country: data.country ?? null,
-          carrier: data.carrier ?? null,
-          lineType: data.lineType ?? null,
-          verified: data.valid ?? false,
-          confidence: Number(data.confidence ?? 0.8),
-          reason: "Provider verified",
-        };
-      }
-    } catch {
-      /* fall through to format-only result */
-    }
-  }
-
-  // Format-only: plausibly valid but not actually verified.
   return {
     phone,
     valid: true,
     e164: fmt.e164,
-    country: null,
+    country: fmt.country,
     carrier: null,
-    lineType: null,
+    lineType: fmt.lineType,
     verified: false,
-    confidence: 0.5,
+    confidence: fmt.confidence,
     reason: fmt.reason,
   };
 }

@@ -244,6 +244,12 @@ export default function DataSourcesPage() {
             review them.
           </p>
           <p className="mt-2">
+            <strong className="text-foreground">Built-in checks:</strong> email domains are checked for a
+            real mail server (MX record) and phone numbers are validated against international numbering
+            metadata, so basic verification works without extra keys. A Hunter.io key adds mailbox-level
+            deliverability confidence.
+          </p>
+          <p className="mt-2">
             <strong className="text-foreground">Global vs company:</strong> a company key overrides the
             global key only for that company. Companies without their own key inherit the global one, so
             one platform key can serve every workspace.

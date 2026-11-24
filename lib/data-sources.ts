@@ -109,25 +109,15 @@ export const DATA_SOURCE_PROVIDERS = [
   },
   {
     key: "email_verifier",
-    label: "Email Verifier (Hunter.io)",
+    label: "Email Verifier (dedicated key)",
     category: "Contact verification",
-    description: "Verify that an email address is deliverable and not disposable.",
+    description:
+      "Optional dedicated Hunter.io key for deliverability checks. If empty, the Hunter.io enrichment key is used.",
     secretLabel: "Hunter.io API key",
     secondaryLabel: null,
     env: "HUNTER_API_KEY",
     secondaryEnv: null,
     docs: "https://hunter.io/api-documentation/v2",
-  },
-  {
-    key: "phone_verifier",
-    label: "Phone Verifier",
-    category: "Contact verification",
-    description: "Validate and format phone numbers in E.164 format.",
-    secretLabel: "Phone verification API key (optional)",
-    secondaryLabel: null,
-    env: "PHONE_VERIFIER_API_KEY",
-    secondaryEnv: null,
-    docs: "https://example.com/phone-verifier-api",
   },
 ] as const;
 

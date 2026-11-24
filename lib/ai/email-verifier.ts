@@ -42,6 +42,39 @@ export interface EmailVerificationResult {
   provider: "none" | "hunter";
 }
 
+const MX_CACHE = new Map<string, boolean | null>();
+
+function timeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
+/**
+ * Check that the email domain has a real mail server (MX record).
+ * This catches dead/fake domains without any third-party API key.
+ */
+async function domainHasMailServer(domain: string): Promise<boolean | null> {
+  if (MX_CACHE.has(domain)) return MX_CACHE.get(domain) ?? null;
+  let result: boolean | null;
+  try {
+    const { resolveMx } = await import("dns/promises");
+    const records = await timeout(resolveMx(domain), 5000);
+    result = records === null ? null : records.length > 0;
+  } catch (error: any) {
+    // NXDOMAIN / no MX records: the domain cannot receive mail.
+    if (error?.code === "ENOTFOUND" || error?.code === "ENODATA") {
+      result = false;
+    } else {
+      // Transient DNS failure: do not block the lead on it.
+      result = null;
+    }
+  }
+  MX_CACHE.set(domain, result);
+  return result;
+}
+
 /** Fast local checks: format, disposable domain, free webmail. */
 function localChecks(email: string): {
   valid: boolean;
@@ -115,6 +148,22 @@ export async function verifyEmail(
     };
   }
 
+  // No third-party key needed: confirm the domain has a real mail server.
+  const domain = email.trim().toLowerCase().split("@")[1] ?? "";
+  const mailServer = domain ? await domainHasMailServer(domain) : null;
+  if (mailServer === false) {
+    return {
+      email,
+      valid: false,
+      disposable: false,
+      freeWebmail: local.freeWebmail,
+      deliverable: false,
+      confidence: 0,
+      reason: "Email domain has no mail server (MX record)",
+      provider: "none",
+    };
+  }
+
   // Use a dedicated verifier key if one is configured. Otherwise reuse the
   // normal Hunter.io key so admins only have to paste it once.
   const [dedicated, hunter] = await Promise.all([
@@ -157,8 +206,10 @@ export async function verifyEmail(
     disposable: false,
     freeWebmail: local.freeWebmail,
     deliverable: null,
-    confidence: local.freeWebmail ? 0.3 : 0.6,
-    reason: local.reason,
+    confidence: mailServer === true ? (local.freeWebmail ? 0.4 : 0.7) : local.freeWebmail ? 0.3 : 0.55,
+    reason: mailServer === true
+      ? "Format valid and the domain has a mail server (MX)"
+      : local.reason,
     provider: "none",
   };
 }
