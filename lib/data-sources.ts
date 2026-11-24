@@ -204,6 +204,122 @@ export type DataSourceStatus = DataSourceProviderDefinition & {
   updatedAt: string | null;
 };
 
+/** Scope a data source key can be saved at: the platform or a company. */
+export interface DataSourceScope {
+  id: string;
+  name: string;
+  slug: string;
+  status: string | null;
+}
+
+/** One provider resolved for one scope (global or a specific company). */
+export interface DataSourceKeyStatus {
+  providerKey: string;
+  scopeId: string;
+  configured: boolean;
+  enabled: boolean;
+  source: "tenant" | "platform" | "env" | "none";
+  /** Company scope only: no company key, so the global key is used. */
+  inherited: boolean;
+  /** A key is stored at this exact scope (platform or the company). */
+  hasOverride: boolean;
+  maskedSecret: string | null;
+  maskedSecondary: string | null;
+  keyVersion: number | null;
+  updatedAt: string | null;
+}
+
+export interface DataSourceMatrix {
+  scopes: DataSourceScope[];
+  providers: DataSourceProviderDefinition[];
+  statuses: DataSourceKeyStatus[];
+}
+
+/**
+ * Everything the admin key matrix needs in one response: the global scope,
+ * every company, and each provider's effective key per scope.
+ *
+ * Precedence is company override → global platform key → environment. A
+ * company row that exists but is disabled intentionally disables that source
+ * for that company (it does not silently fall back to the global key).
+ */
+export async function listDataSourceMatrix(): Promise<DataSourceMatrix> {
+  const [credentials, tenants] = await Promise.all([
+    prisma.dataSourceCredential.findMany(),
+    prisma.tenant.findMany({
+      where: { slug: { not: "platform" } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, slug: true, status: true },
+    }),
+  ]);
+
+  const scopes: DataSourceScope[] = [
+    { id: "platform", name: "Global (all companies)", slug: "platform", status: null },
+    ...tenants.map((t) => ({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      status: String(t.status),
+    })),
+  ];
+
+  const statuses: DataSourceKeyStatus[] = [];
+
+  for (const definition of DATA_SOURCE_PROVIDERS) {
+    const platformRow = credentials.find(
+      (c) => c.providerKey === definition.key && c.tenantId === "platform"
+    );
+    const envSecret = process.env[definition.env] || null;
+    const envSecondary = definition.secondaryEnv
+      ? process.env[definition.secondaryEnv] || null
+      : null;
+
+    for (const scope of scopes) {
+      const ownRow =
+        scope.id === "platform"
+          ? platformRow
+          : credentials.find(
+              (c) => c.providerKey === definition.key && c.tenantId === scope.id
+            );
+      const fallbackRow = scope.id === "platform" ? null : platformRow;
+      const row = ownRow ?? fallbackRow;
+      const inherited =
+        scope.id !== "platform" && !ownRow && Boolean(platformRow || envSecret || envSecondary);
+      const source: DataSourceKeyStatus["source"] = ownRow
+        ? scope.id === "platform" ? "platform" : "tenant"
+        : fallbackRow
+          ? "platform"
+          : envSecret || envSecondary
+            ? "env"
+            : "none";
+
+      statuses.push({
+        providerKey: definition.key,
+        scopeId: scope.id,
+        configured: Boolean(row || envSecret || envSecondary),
+        enabled: row ? row.enabled : Boolean(envSecret || envSecondary),
+        source,
+        inherited,
+        hasOverride: Boolean(ownRow),
+        maskedSecret: row?.lastFour
+          ? `****${row.lastFour}`
+          : envSecret ? maskSecret(envSecret) : null,
+        maskedSecondary: row?.encryptedSecondary
+          ? "********"
+          : envSecondary ? maskSecret(envSecondary) : null,
+        keyVersion: row?.keyVersion ?? null,
+        updatedAt: row?.updatedAt.toISOString() ?? null,
+      });
+    }
+  }
+
+  return {
+    scopes,
+    providers: DATA_SOURCE_PROVIDERS.map((p) => ({ ...p })),
+    statuses,
+  };
+}
+
 export async function listDataSourceStatus(tenantId?: string | null): Promise<DataSourceStatus[]> {
   const rows = await prisma.dataSourceCredential.findMany({
     where: tenantId

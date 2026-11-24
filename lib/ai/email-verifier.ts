@@ -115,8 +115,13 @@ export async function verifyEmail(
     };
   }
 
-  // Try Hunter.io email verifier when configured.
-  const source = await resolveDataSource("email_verifier", tenantId ?? null).catch(() => null);
+  // Use a dedicated verifier key if one is configured. Otherwise reuse the
+  // normal Hunter.io key so admins only have to paste it once.
+  const [dedicated, hunter] = await Promise.all([
+    resolveDataSource("email_verifier", tenantId ?? null).catch(() => null),
+    resolveDataSource("hunter", tenantId ?? null).catch(() => null),
+  ]);
+  const source = [dedicated, hunter].find((s) => s?.secret && s.enabled) ?? null;
   if (source?.secret) {
     try {
       const params = new URLSearchParams({ email, api_key: source.secret });

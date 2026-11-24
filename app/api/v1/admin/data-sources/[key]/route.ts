@@ -20,9 +20,24 @@ const toggleSchema = z.object({
   tenantId: z.string().optional().nullable(),
 });
 
-function scopeOf(body: { tenantId?: string | null }) {
-  return body.tenantId && body.tenantId !== "platform" ? body.tenantId : "platform";
+/**
+ * Resolve the key scope. `platform` (or no value) is the global scope; any
+ * other value must be a real company id so orphan credentials cannot be
+ * created by a typo.
+ */
+async function scopeOf(body: { tenantId?: string | null }): Promise<string | null> {
+  const requested = body.tenantId?.trim();
+  if (!requested || requested === "platform") return "platform";
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: requested },
+    select: { id: true },
+  });
+  return tenant?.id ?? null;
 }
+
+const SCOPE_ERROR = {
+  error: { code: "VALIDATION_ERROR", message: "Unknown company for this key scope" },
+};
 
 export async function POST(
   req: NextRequest,
@@ -40,7 +55,8 @@ export async function POST(
 
     const body = await req.json();
     const data = saveSchema.parse(body);
-    const tenantId = scopeOf(data);
+    const tenantId = await scopeOf(data);
+    if (!tenantId) return NextResponse.json(SCOPE_ERROR, { status: 400 });
     const lastFour = data.secret.slice(-4);
 
     const existing = await prisma.dataSourceCredential.findUnique({
@@ -125,7 +141,8 @@ export async function PATCH(
 
     const body = await req.json();
     const data = toggleSchema.parse(body);
-    const tenantId = scopeOf(data);
+    const tenantId = await scopeOf(data);
+    if (!tenantId) return NextResponse.json(SCOPE_ERROR, { status: 400 });
     const existing = await prisma.dataSourceCredential.findUnique({
       where: { tenantId_providerKey: { tenantId, providerKey: params.key } },
     });
@@ -187,7 +204,8 @@ export async function DELETE(
     }
 
     const { searchParams } = new URL(req.url);
-    const tenantId = scopeOf({ tenantId: searchParams.get("tenantId") });
+    const tenantId = await scopeOf({ tenantId: searchParams.get("tenantId") });
+    if (!tenantId) return NextResponse.json(SCOPE_ERROR, { status: 400 });
     await prisma.dataSourceCredential.deleteMany({
       where: { tenantId, providerKey: params.key },
     });

@@ -15,6 +15,7 @@ import {
   Target,
   Mail,
   Calendar,
+  Database,
   DollarSign,
   KeyRound,
   ArrowLeft,
@@ -382,6 +383,23 @@ export default function AdminCompanyDetailPage() {
             </Card>
             <CompanyAIModelsCard tenantId={id} />
             <SmtpCard tenantId={id} />
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between gap-4 py-4">
+                <div>
+                  <CardTitle className="text-base">Data source keys</CardTitle>
+                  <CardDescription>
+                    Set company-specific discovery and enrichment keys, or inherit the global keys.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push(`/admin/data-sources?tenantId=${id}`)}
+                >
+                  <Database className="mr-2 h-4 w-4" /> Manage sources
+                </Button>
+              </CardHeader>
+            </Card>
             <SearchScheduleCard tenantId={id} />
             {showRE && <RealEstateCard tenantId={id} />}
             {showSW && <SoftwareOutreachCard tenantId={id} />}
